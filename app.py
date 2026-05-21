@@ -13,6 +13,8 @@ from amazon.csv_import import csv_import_bp
 from amazon.routes_listing import listing_bp
 import amazon.db_migrate as db_migrate  
 
+# TEST
+
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config", "config.json") 
 
 # ✅ コマンド引数から実行モードを判定（デフォルトは "dev"）
