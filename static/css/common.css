@@ -1,0 +1,900 @@
+body {
+    font-family: sans-serif;
+    background-color: #f6f8fa;
+    margin: 0;
+    padding: 0 40px;
+
+    display: flex;   
+    flex-direction: column;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+/* タイトルバーとタブは固定（スクロールしない） */
+.title-bar, .tabs {
+    flex: 0 0 auto;
+}
+
+/* タイトル ZSSS research Tool */
+.tabs-title {
+  color:#fff;           /* 白文字 */
+  text-decoration: none; /* 下線消す */
+  font-weight: bold;       /* 太字 */
+  font-size: 23px;
+  margin-left: 10px;
+  margin-right: 50px;
+}
+
+.tabs-title:hover {
+  text-decoration: none; /* ホバーでも下線出さない */
+  color: #e0e0e0;        /* ホバー時にちょっと薄く */
+}
+
+/* タブ配下だけスクロールにするビュー */
+.tab-viewport {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+h1 {
+    margin: 4px 0;  
+}
+
+/* ✅ グラデーションつきの上部タイトルバー */
+.title-bar {
+    background: linear-gradient(90deg, #d7e5ff, #f0f4ff);
+    padding: 0px 40px;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ✅ 共通タブデザイン */
+.tabs {
+    position: fixed; 
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+
+    display:flex; align-items:center; gap:8px;
+    height:48px; padding:0 8px;
+    border-radius:0;
+    /* background:linear-gradient(45deg,#3bade3,#9844b7,#cb0000,#001eff); */
+    background:linear-gradient(45deg,#ffd000f8,#ff0000,#660000,#222222);
+    background-size:200% 200%;
+    animation:bggradient 20s ease infinite;
+    box-shadow:0 2px 4px -1px rgba(0,0,0,.2),0 4px 5px 0 rgba(0,0,0,.14),0 1px 10px 0 rgba(0,0,0,.12);
+    color:#fff;
+}
+
+/* タブボタン */
+.tab {
+    background: transparent;
+    border: 0;
+    color: #fff;
+    font-weight: 600;
+    padding: 0 14px;
+    height: 48px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+/* ホバー */
+.tab:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* アクティブ */
+.tab.active {
+    background: #2948fc;
+    color: #fff;
+    box-shadow: inset 0 -2px 0 #fff;
+}
+
+.tab-content {
+    margin-top: 0 !important; 
+    padding-top: 0 !important;
+    display: none;
+    background: linear-gradient(to bottom, #e8f0f9, #f2f7fb);
+    border: 1px solid #ccc;
+    padding: 8px; /* 内側の余白 */
+    margin-top: 0 !important; /* ← 外側の余白を消す */
+    border-radius: 0 0 15px 15px;
+}
+
+.tab-content.active {
+  display: block;
+}
+    
+
+.tab-content.active {
+    display: block;
+}
+
+.global-region {
+    display: flex;
+    align-items: center;   /* 縦方向を中央揃え */
+    margin-left: 100px;
+    margin-right: 25px;
+    position: relative;
+    top: 1px;
+}
+
+.global-region select {
+    height: 32px;          /* 少し小さめにして */
+    padding: 0 6px;
+    border-radius: 4px;
+    border: none;
+    margin: 0;             /* はみ出し防止 */
+    width: 220px; 
+}
+
+/* === Layout foundation (from JadeGate) === */
+.wrap {
+    max-width: 1100px;
+    margin: 24px auto;
+    padding: 16px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+}
+
+.card {
+    border: 1px solid #eee;
+    border-radius: 14px;
+    padding: 16px;
+    background: #fff;
+}
+
+.title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 12px;
+}
+
+.row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+/* 商品情報タブ専用の横並びレイアウト */
+.info-row {
+  display: flex;
+  align-items: center;
+  margin: 4px 0;
+}
+
+.info-row .label {
+  min-width: 160px;
+  font-weight: bold;
+}
+
+.info-row .val {
+  flex: 1;
+  display: inline-block;
+}
+/* 商品情報タブ専用の横並びレイアウトここまで */
+
+@media (max-width: 900px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* === Input / Select / Text unified === */
+.input,
+.select,
+.text {
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.text {
+    min-height: 70px;
+    resize: vertical;
+}
+
+/* === Utility elements === */
+.strong {
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.note {
+    background: #fff7e6;
+    border: 1px solid #ffe1a8;
+    border-radius: 12px;
+    padding: 10px;
+    margin-top: 8px;
+    color: #7a4b00;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.kv {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+/* === Compact row / hints / valuation basis === */
+.row--compact {
+    display: grid;
+    grid-template-columns: 90px minmax(220px, 360px) 48px minmax(110px, 140px) minmax(120px, 1fr);
+    gap: 8px;
+    align-items: center;
+}
+
+/* このセクションは新規追加：為替+課税基準の3カラム行 */
+.row--compact-3 {
+  display: grid;
+  grid-template-columns: 90px minmax(110px, 160px) minmax(120px, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+.row--compact-3 .input { width: 100%; }
+.row--compact-3 .hint  { white-space: nowrap; text-align: right; }
+
+ /* 列幅いっぱいに広げる */
+.row--compact .select { width: 100%; } 
+
+/* row--compact 内で input と select の高さを統一 */
+.row--compact .select,
+.row--compact .input {
+  height: 38px;        /* 数値は input と合わせる */
+  padding: 6px 10px;   /* 上下の余白を揃える */
+  box-sizing: border-box;
+}
+
+.row--compact .hint { 
+    white-space: nowrap; 
+}
+
+.row--compact input.input { 
+    width: 100%; 
+    max-width: 160px; 
+}
+
+#valuationBasisLabel {
+    margin-left: auto;
+    text-align: right;
+}
+
+/* === Label / Input font size unify === */
+.label,
+.input,
+.select,
+.hint {
+    font-size: 16px;
+}
+
+/* === ZSSS 共通フォーム/ボタン === */
+form {
+    width: 60%;
+    margin: 0 auto;
+}
+
+label {
+    display: inline-block;
+    width: 150px;
+    vertical-align: top;
+    margin-bottom: 0.5em;
+}
+
+input[type="text"],
+select {
+    width: calc(100% - 160px);
+    padding: 6px;
+    margin-bottom: 1em;
+}
+
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: none;
+    padding: 6px;
+    margin-bottom: 1em;            
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1em;
+}
+
+.form-row button {
+    margin-left: 10px;
+}
+
+.form-row label {
+    display: inline-block;
+    width: 150px;
+    vertical-align: top;
+}
+
+.form-row select,
+.form-row input,
+.form-row textarea {
+    flex: 1;
+    padding: 5px;
+}
+
+.open-store-btn {
+    padding: 6px 12px;
+    margin: 0;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 0.9em;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.open-store-btn:hover {
+    background-color: #0056b3;
+}
+
+.open-store-btn:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+}
+
+.flash-messages {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #e0f3ff;
+    border: 1px solid #b3e5fc;
+    color: #0277bd;
+    border-radius: 4px;
+    list-style-type: none;
+}
+
+.btn-blue {
+    background-color: #007bff;
+    color: white;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    display: inline-block;
+    width: auto;  
+}
+
+.btn-blue:hover {
+    background-color: #0056b3;
+}
+
+.btn-blue:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.btn-row {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.option-card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px auto;
+    width: 90%;
+    max-width: 800px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.option-card h2 {
+    margin-bottom: 10px;
+    font-size: 20px;
+    border-left: 5px solid #007bff;
+    background-color: #ffffff;
+    padding-left: 10px;
+    color: #333;
+} 
+
+.form-label {
+    display: inline-block;
+    margin-right: 16px;
+    min-width: 150px;
+    margin-left: 2%; 
+    text-align: left;
+}    
+
+input[type="checkbox"] {
+    transform: scale(1.5);
+    margin-right: 6px;
+} 
+
+/* ✅ 保存ファイル一枠用 */
+#asin-file-list {
+    min-height: 150px;
+    max-height: 150px;
+    overflow-y: auto;
+    overflow-x: auto; 
+    border: 1px solid #ccc;
+    padding: 8px;
+    border-radius: 8px;
+    background-color: #fff;
+}
+
+/* メニュー親 */
+.user-menu {
+  position: relative;          /* ← absolute をやめる */
+  height: 48px;
+  display: flex;
+  align-items: center;
+  margin-left: 8px;            /* ロゴとの間に少し余白 */
+  z-index: auto;               /* タブより前に出さない */
+}
+
+/* ドロップダウン本体 */
+#user-dropdown {
+  position: absolute;
+  left: 0; right: auto;   /* ← ロゴと同じラインから左寄せ */
+  top: calc(100% + 6px);
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  padding: 6px 0;
+  z-index: 1500;
+}
+
+/* 項目 */
+#user-dropdown .menuitem {
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.2;
+  color: #111;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#user-dropdown .menuitem:hover {
+  background: #f3f4f6;
+}
+
+/* 三本線メニューボタン */
+.menubtn {
+  background: transparent;     /* 背景は透過 */
+  border: 0;                   /* 枠なし */
+  color: #fff;                 /* アイコン（☰）は白 */
+  height: 48px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 22px;             /* ☰ を大きめに */
+}
+
+.menubtn:hover {
+  background: rgba(255,255,255,.15); /* タブと同じホバー感 */
+}
+
+/* ============================= */
+/* ブランドゲート専用レイアウト   */
+/* ============================= */
+.brand-gate-grid {
+  display: flex;
+  gap: 12px;
+}
+
+.brand-gate-grid .asin-panel {
+  flex: 0 0 600px;   /* 左は固定幅 */
+}
+
+.brand-gate-grid .result-panel {
+  flex: 1;           /* 右は残り全部 */
+  min-width: 500px;  /* 安全のため最低幅 */
+}
+
+#bgc-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;  /* 線を綺麗にする */
+}
+
+/* ヘッダー固定 */
+#bgc-table th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
+  border-bottom: 2px solid #999; /* ヘッダー下は少し濃い線 */
+  padding: 6px 8px;
+}
+
+/* 行ごとに下線を追加 */
+#bgc-table td {
+  border-bottom: 1px solid #ccc;
+  padding: 4px 8px;
+  word-wrap: break-word; /* 長いブランド名も折り返し */
+}
+
+#bgc-table th {
+  position: sticky;
+  top: 0;
+  background: #fff;   /* 背景白で透け防止 */
+  z-index: 2;         /* 下のセルより前面に出す */
+  border-bottom: 2px solid #999; /* ヘッダー下の線を少し濃く */
+  padding: 6px 8px;
+}
+
+/* ============================= */
+/* ブランドゲート判定結果の色分け */
+/* ============================= */
+.status-open {
+  color: green;
+  font-weight: bold;
+}
+
+.status-approval {
+  color: darkorange;
+  font-weight: bold;
+}
+
+.status-block {
+  color: red;
+  font-weight: bold;
+}
+
+/* トグルスイッチ風 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0;
+  right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 28px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+/* ONのとき */
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+/* 結果テーブルの折り返し防止 */
+.result-table td, .result-table th { white-space: nowrap; }
+
+/* Topサイドバーレイアウト */
+#dashboard.subtab-content {
+  padding-left: 30px;
+  padding-top: 10px;
+}
+
+.top-layout {
+  display: flex;
+  height: 100%;
+  position: relative; /* ハンドル配置の基準 */
+}
+
+/* サイドバー */
+.sidebar {
+  width: 220px;
+  min-width: 220px;  /* ← 追加 固定化 */
+  max-width: 220px;  /* ← 追加 固定化 */
+  background: #fff;
+  border-right: 1px solid #ddd;
+  padding: 15px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+  transition: width 0.3s ease, min-width 0.3s ease, max-width 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+/* サイドバーのボタン */
+.sidebar-btn {
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 12px;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.sidebar-btn:hover {
+  background: #f0f4ff;
+  border-color: #4a90e2;
+}
+
+.sidebar-btn.active {
+  background: #4a90e2;
+  color: #fff;
+  border-color: #4a90e2;
+}
+
+/* 折りたたみ状態 */
+.sidebar.collapsed {
+  width: 0; /* 完全に閉じる */
+  min-width: 0;
+  max-width: 0;
+  padding: 0; 
+  overflow: hidden;
+}
+
+/* 折りたたみ中はボタンを消す */
+.sidebar.collapsed .sidebar-btn {
+  display: none;
+}
+
+/* ハンドル */
+.collapse-handle {
+  position: absolute;
+  top: 0px;/* ← ＜マーク上の位置 */
+  left: 240px; /* ← ＜マーク配置の数値 */
+  width: 18px;
+  height: 232px;/* ← ＜マーク下の位置 */
+  background: #96c4f8;
+  border-radius: 0 5px 5px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  user-select: none;
+  transition: left 0.3s ease;
+  z-index: 10; /* サイドバーより前面 */
+}
+
+.sidebar.collapsed + .collapse-handle {
+  left: 0; /* サイドバー閉じたら画面左端 */
+}
+
+.collapse-handle:hover {
+  background: #bbb;
+}
+
+/* メイン表示部分 */
+.main-panel {
+  flex: 1;
+  padding: 0px 8px; /* メニューとパネルの間隔幅 */
+}
+
+.file-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.file-input-wrapper {
+  position: relative;
+  width: 100%;   /* 親の幅いっぱい */
+  max-width: 900px; /* 必要なら上限を決める */
+}
+
+.file-input-text {
+  flex: 1;
+  min-width: 300px;
+  height: 60px;
+  font-size: 14px;
+  padding: 0 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.subtab-content {
+    background: none;
+    border: none;
+    padding-left: 30px; /* Dashboardと揃える */
+    padding-top: 5px;
+    margin-top: 0; /* ← ここも必要 */
+}
+
+#csvUploadBtn {
+  position: static;   /* ← absolute を消す */
+  transform: none;    /* ← translate を消す */
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+
+#top.tab-content.active {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#csvResultArea {
+    display: block; /* 横並び防止 */
+    width: 100%;
+}
+
+.csv-result-block {
+    margin-bottom: 30px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.csv-result-block h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+}
+
+.csv-result-block p {
+    margin: 0 0 10px 0;
+    color: #666;
+    font-size: 13px;
+}
+
+.csv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.csv-table th, .csv-table td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+    text-align: left;
+}
+
+.csv-table th {
+    background: #f8f8f8;
+    font-weight: bold;
+}
+
+/* ローディングオーバーレイ */
+#loadingOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5); /* 半透明の黒背景 */
+  display: none; /* 初期は非表示 */
+  align-items: center;
+  justify-content: center;
+  z-index: 9999; /* 最前面に表示 */
+}
+
+#loadingOverlay .overlay-content {
+  text-align: center;
+  color: #fff;
+  font-size: 18px;
+}
+
+#loadingOverlay .spinner {
+  border: 8px solid rgba(255, 255, 255, 0.3);
+  border-top: 8px solid #fff;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 20px auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.prelisting-table-wrapper {
+    max-height: calc(100vh - 220px); /* 画面サイズから上部のタイトルや余白を引いた高さ */
+    overflow-y: auto;                /* 縦スクロール */
+    margin-top: 10px;                /* タイトルとの間に余白 */
+    padding-bottom: 10px;            /* 下に少し余白 */
+}
+
+.dataTables_wrapper .dataTables_scrollHead {
+    overflow: hidden !important;
+}
+
+/* ZSSS 共通テーブル用ストライプ（ALL-Listingにも効く） */
+.zsss-listing-table.dataTable tbody tr.zsss-odd td { background: #f3f9fa; }
+.zsss-listing-table.dataTable tbody tr.zsss-even td { background: #ffffff; }
+/* 操作・画像列のセルを左寄せに */
+.zsss-listing-table td.col-ops {
+    text-align: left;   /* ← 中央寄せから左寄せに変更 */
+    padding-left: 10px; /* ← 少し余白をつけて自然に見せる */
+}
+
+/* チェックボックスと画像を横並び */
+.img-toggle-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px; /* ← チェックと画像の間にすき間 */
+}
+
+.zsss-listing-table {
+    table-layout: fixed;
+    width: 100%;
+}
+.zsss-listing-table th:nth-child(1),
+.zsss-listing-table td:nth-child(1) { width: 30%; }
+.zsss-listing-table th:nth-child(2),
+.zsss-listing-table td:nth-child(2) { width: 10%; }
+.zsss-listing-table th:nth-child(3),
+.zsss-listing-table td:nth-child(3) { width: 60%; }
+
+/* 商品情報セル内のテキスト省略表示 */
+.zsss-listing-table td.col-info .row-toggle-wrap {
+  display:flex;              /* ← 横並びを維持 */
+  align-items:flex-start;
+  gap:8px;
+  width:100%;
+  white-space:normal !important; /* ← 旧nowrapを無効化 */
+}
+.zsss-listing-table td.col-info .row-container {
+  display:block;
+  flex:1 1 auto;
+  min-width:0;               /* ← これが無いと ellipsis が効かない */
+}
+
+.zsss-listing-table td.col-info .asin-cell,
+.zsss-listing-table td.col-info .jp-title,
+.zsss-listing-table td.col-info .jp-brand,
+.zsss-listing-table td.col-info div{
+  display:block;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.zsss-listing-table td.col-info .jp-title {    
+    font-size: 16px;
+    font-weight: bold;
+}
+
+

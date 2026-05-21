@@ -1,0 +1,10 @@
+config/
+profiles/
+chrome_profile/
+logs/
+cache/
+*.db
+*.sqlite
+*.sqlite3
+.env
+TEST/

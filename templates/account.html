@@ -1,0 +1,33 @@
+<div class="card">
+  <h2>アカウント設定</h2>
+
+  <!-- ▼ JP 固定欄 -->
+  <div id="jp-account">
+    <h3>日本 (JP)</h3>
+    <label>Seller ID：</label>
+    <input type="text" id="jp_seller_id" />
+    <br>
+    <label>Refresh Token：</label>
+    <input type="text" id="jp_refresh_token" style="width:500px;" />
+  </div>
+
+  <hr>
+
+  <!-- ▼ 選択リージョン欄 -->
+  <div id="region-account">
+    <h3 id="region-title">マーケットプレイス選択</h3>
+    <label>Seller ID：</label>
+    <input type="text" id="region_seller_id" />
+    <br>
+    <label>Refresh Token：</label>
+    <input type="text" id="region_refresh_token" style="width:500px;" />
+  </div>
+
+  <br>
+  <button id="saveAccountBtn" class="btn-blue">保存</button>
+</div>
+
+<!-- ▼ JS 読み込み -->
+<script src="{{ url_for('static', filename='js/account.js') }}"></script>
+</html>
+
