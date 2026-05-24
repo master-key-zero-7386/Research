@@ -44,5 +44,5 @@ Thumbs.db
 *-wal
 *-shm
 
-lists/*.csv
+*.csv
 *.xlsx
