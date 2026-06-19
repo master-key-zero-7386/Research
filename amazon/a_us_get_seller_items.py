@@ -151,7 +151,13 @@ while current_min < max_price:
 
     if get_debug_mode():
         print(f"▶ URL: {base_url}")
+
+    driver.get("https://www.amazon.com")
+
+    time.sleep(5)
+
     driver.get(base_url)
+
     time.sleep(2)
 
     if current_min == min_price:
