@@ -212,6 +212,10 @@ while current_min < max_price:
                 except:
                     brand = ""
 
+                # --- チェック完了後削除 ---
+                print(f"[DEBUG] 取得したbrand: '{brand}' | ASIN: {asin}")  # チェック完了後削除
+                # --- チェック完了後削除 ---
+
                 # ✅ 追加：ブランドフィルタリング処理
                 # brand_filter（あなたが指定したブランド名）が取得したbrandに含まれていなければスキップ
                 if brand_filter and brand_filter.lower() not in brand.lower():
