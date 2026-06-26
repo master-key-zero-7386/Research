@@ -1155,9 +1155,13 @@ def extract_asin_list_route():
         # ✅ CSV 保存
         with open(output_path, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
-            writer.writerow(["ASIN"])
+
+            # ヘッダーに「ASIN」と「SKU」を並べる
+            writer.writerow(["ASIN", "SKU"]) 
+            
+            # データの行は「ASIN」と「空欄（""）」で書き出す
             for asin in sorted(asin_set):
-                writer.writerow([asin])
+                writer.writerow([asin, ""]) 
 
         return jsonify({"status": "success", "message": "ASIN抽出完了", "saved_path": output_path, "original_files": files  })
 
