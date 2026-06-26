@@ -212,6 +212,10 @@ while current_min < max_price:
                 except:
                     brand = ""
 
+                # ✅ 追加：ブランドフィルタリング処理
+                # brand_filter（あなたが指定したブランド名）が取得したbrandに含まれていなければスキップ
+                if brand_filter and brand_filter.lower() not in brand.lower():
+                    continue
                 try:
                     price_whole = product.find_element(By.CSS_SELECTOR, "span.a-price-whole").text.replace(",", "")
                     price_frac = product.find_element(By.CSS_SELECTOR, "span.a-price-fraction").text
