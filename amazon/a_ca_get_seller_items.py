@@ -210,7 +210,11 @@ while current_min < max_price:
                     brand_el = product.find_element(By.CSS_SELECTOR, "a.a-size-base.a-text-bold")
                     brand = brand_el.text.strip()
                 except:
-                    brand = ""
+
+                    try:
+                        brand = product.find_element(By.CSS_SELECTOR, "div.a-row span.a-size-base").text.strip()
+                    except:
+                        brand = ""
 
                 # --- チェック完了後削除 ---
                 print(f"[DEBUG] 取得したbrand: '{brand}' | ASIN: {asin}")  # チェック完了後削除
@@ -220,6 +224,7 @@ while current_min < max_price:
                 # brand_filter（あなたが指定したブランド名）が取得したbrandに含まれていなければスキップ
                 if brand_filter and brand_filter.lower() not in brand.lower():
                     continue
+
                 try:
                     price_whole = product.find_element(By.CSS_SELECTOR, "span.a-price-whole").text.replace(",", "")
                     price_frac = product.find_element(By.CSS_SELECTOR, "span.a-price-fraction").text
