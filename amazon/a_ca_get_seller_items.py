@@ -40,7 +40,7 @@ def show_deliver_to_confirmation(confirm_wait, brand_filter):
 
     win = tk.Tk()
     win.title("配送先確認")
-    win.geometry("450x150")
+    win.geometry("450x180")
     win.eval('tk::PlaceWindow . center')
 
     label_text = (
