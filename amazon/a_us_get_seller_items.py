@@ -135,11 +135,9 @@ while current_min < max_price:
     current_max = min(current_min + step, max_price)
     price_filter = f"&rh=p_36%3A{int(current_min*100)}-{int(current_max*100)}"
 
-     # ✅ seller_id に "すべて" が含まれる場合は me= を含めない
-#    me_param = f"me={seller_id}&" if seller_id else ""
+    # ✅ seller_id に "すべて" が含まれる場合は me= を含めない
     me_param = f"me={seller_id}&" if seller_id and "すべて" not in seller_id else ""
     
-    # base_url = f"https://www.amazon.com/s?{me_param}marketplaceID=ATVPDKIKX0DER"
     base_url = f"https://www.amazon.com/s?{me_param}"
 
     if brand_filter:
