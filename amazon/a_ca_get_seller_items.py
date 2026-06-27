@@ -211,8 +211,17 @@ while current_min < max_price:
                     brand = brand_el.text.strip()
                 except:
 
+                    # --- ▼ SECTION 01: ブランド取得の修正 ▼ ---
                     try:
-                        brand = product.find_element(By.CSS_SELECTOR, "div.a-row span.a-size-base").text.strip()
+                        # 商品カード内のすべての「ブランド名っぽい候補（aタグ）」を取得し、不要な文字列が含まれるものを除外する
+                        candidates = product.find_elements(By.CSS_SELECTOR, "a.a-size-base")
+                        brand = ""
+                        for cand in candidates:
+                            text = cand.text.strip()
+                            # 不要な文字列リスト（在庫や価格情報など）
+                            if text and "stock" not in text and "featured" not in text and "/" not in text and "$" not in text:
+                                brand = text
+                                break
                     except:
                         brand = ""
 
