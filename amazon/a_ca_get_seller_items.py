@@ -224,32 +224,11 @@ while current_min < max_price:
                 except:
                     url = ""
 
-                # --- ▼ SECTION 01: ブランド取得の修正 ▼ ---
                 try:
-                    # まずは一番確実な方法（boldタグ付きのリンク）を探す
                     brand_el = product.find_element(By.CSS_SELECTOR, "a.a-size-base.a-text-bold")
                     brand = brand_el.text.strip()
                 except:
-                    # ダメなら span と a を両方探すフォールバック処理
-                    try:
-                        candidates = product.find_elements(By.CSS_SELECTOR, "span.a-size-base, a.a-size-base")
-                        brand = ""
-                        for cand in candidates:
-                            text = cand.text.strip()
-                            # 余計な文字を含まないものだけをブランドとして採用する
-                            if text and "stock" not in text and "featured" not in text and "/" not in text and "$" not in text:
-                                brand = text
-                                break
-                    except:
-                        brand = ""
-
-                # --- チェック完了後削除 ---
-                print(f"[DEBUG] 取得したbrand: '{brand}' | ASIN: {asin}")  # チェック完了後削除
-                # --- チェック完了後削除 ---
-
-                # ✅ 追加：ブランドフィルタリング処理
-                if brand_filter and brand_filter.lower() not in brand.lower():
-                    continue
+                    brand = ""
 
                 try:
                     price_whole = product.find_element(By.CSS_SELECTOR, "span.a-price-whole").text.replace(",", "")
