@@ -92,11 +92,29 @@ with open(log_path, "w", encoding="utf-8") as log:
 # Chrome初期化
 options = Options()
 options.add_argument(f"--user-data-dir={profile_path}")
-# options.add_argument("--profile-directory=Default")
+# ブラウザの起動設定を強化
 options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--disable-blink-features=AutomationControlled") # 自動操作フラグを隠す
+options.add_experimental_option("excludeSwitches", ["enable-automation"])
+options.add_experimental_option("useAutomationExtension", False)
+# 本物のブラウザっぽく見せるためのUser-Agent
+options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
+# ドライバー起動時にポート固定（クラッシュ対策）
+options.add_argument("--remote-debugging-port=9222") 
 
-driver = webdriver.Chrome(options=options)     
+# 一旦、既存のドライバ生成をこれに差し替えてください
+try:
+    driver = webdriver.Chrome(options=options)
+    # CDPを使って自動操作フラグを完全に消す（さらに強力）
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+      "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    })
+except Exception as e:
+    print(f"❌ Chrome起動失敗: {e}")
+    sys.exit(1)
+        
 wait = WebDriverWait(driver, 15)
 
 # 引数受取：13個受け取る完全版
