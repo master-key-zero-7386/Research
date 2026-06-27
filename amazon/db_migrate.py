@@ -54,6 +54,17 @@ SELLER_LIST_COLUMNS = {
     "last_used": "INTEGER DEFAULT 0"
 }
 
+BRAND_MASTER_COLUMNS = {
+    "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+    "marketplace": "TEXT NOT NULL",
+    "brand_name": "TEXT NOT NULL",
+    "brand_id": "TEXT NOT NULL",
+    "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+}
+
+
+
 def get_existing_columns(conn, table_name):
     cur = conn.cursor()
     try:
@@ -67,9 +78,23 @@ def migrate_table(conn, table_name, schema_dict):
     cur = conn.cursor()
 
     if not existing:
-        # 新規作成（DEFAULT CURRENT_TIMESTAMPもOK）
-        cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
-        cur.execute(f"CREATE TABLE {table_name} ({cols_def})")
+
+        if table_name == "brand_master":
+            cur.execute("""
+                CREATE TABLE brand_master (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    marketplace TEXT NOT NULL,
+                    brand_name TEXT NOT NULL,
+                    brand_id TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (marketplace, brand_name)
+                )
+            """)
+        else:
+            cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
+            cur.execute(f"CREATE TABLE {table_name} ({cols_def})")
+
         print(f"[CREATE] {table_name}")
     else:
         # カラム追加（DEFAULT CURRENT_TIMESTAMP は外す）
@@ -93,6 +118,8 @@ def migrate_db(db_name):
         migrate_table(conn, "blacklist_brand", BLACKLIST_BRAND_COLUMNS)
     elif base.endswith("_seller_list.db"):
         migrate_table(conn, "seller_list", SELLER_LIST_COLUMNS)
+    elif base == "brand_master.db":
+        migrate_table(conn, "brand_master", BRAND_MASTER_COLUMNS)
 
     conn.close()
     print(f"[OK] migrated: {db_name}")
@@ -104,6 +131,9 @@ def main():
     # dbフォルダ内の全DBファイルを処理
     for db_file in glob.glob(os.path.join(DB_DIR, "*.db")):
         migrate_db(os.path.basename(db_file))
+        
+    # brand_master.db は必ず作成
+    migrate_db("brand_master.db")        
 
 if __name__ == "__main__":
     main()
