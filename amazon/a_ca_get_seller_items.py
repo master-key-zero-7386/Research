@@ -144,7 +144,6 @@ if brand_filter:
 min_price = float(args[3].strip() or 0)
 max_price = float(args[4].strip() or float("inf"))
 step = float(args[5].strip() or 0)
-# max_page = int(args[].strip() or 20)
 confirm_wait_str = args[6].strip()
 if confirm_wait_str == "手動確認" or confirm_wait_str == "":
     confirm_wait = 0
@@ -163,7 +162,6 @@ shop_name = args[11].strip() if len(args) > 11 else "Unknown"
 current_min = min_price
 while current_min < max_price:
     current_max = min(current_min + step, max_price)
-    # price_filter = f"&rh=p_36%3A{int(current_min*100)}-{int(current_max*100)}"
     
     rh = [f"p_36:{int(current_min*100)}-{int(current_max*100)}"]
 

@@ -12,6 +12,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import tkinter as tk
 from utils.config_loader import cfg, get_debug_mode
+from amazon.brand_master import get_brand_id
+
 
 if get_debug_mode():
     print("✅ a_us_get_seller_items.py が起動されました！")
@@ -19,7 +21,7 @@ if get_debug_mode():
 # ✅ seller_id の取得
 seller_id = sys.argv[1].strip()
 
-def show_deliver_to_confirmation(confirm_wait):
+def show_deliver_to_confirmation(confirm_wait, brand_filter):
     proceed_flag = {"value": None}
 
     def on_ok():
@@ -41,13 +43,18 @@ def show_deliver_to_confirmation(confirm_wait):
     win.geometry("450x120")
     win.eval('tk::PlaceWindow . center')
 
-    label_text = "Deliver to が販売予定の国に設定されていますか？"
-    if confirm_wait > 0:
-        label_text += f"\n（{confirm_wait}秒後に自動で進行）"
-    else:
-        label_text += f"\n（手動確認モード：OKボタンでスタート）"
+    label_text = (
+        "以下の内容を確認してください。\n\n"
+        "① Deliver to が販売予定の国に設定されている\n"
+        f"② ブランド「{brand_filter}」に ✓ が付いている"
+    )
 
-    tk.Label(win, text=label_text, pady=10).pack()
+    if confirm_wait > 0:
+        label_text += f"\n\n（{confirm_wait}秒後に自動で進行）"
+    else:
+        label_text += "\n\n（手動確認モード：OKボタンでスタート）"
+
+    tk.Label(win, text=label_text, justify="left", pady=10).pack()
 
     frame = tk.Frame(win)
     frame.pack(pady=10)
@@ -91,11 +98,30 @@ with open(log_path, "w", encoding="utf-8") as log:
 
 # Chrome初期化
 options = Options()
-# options.add_argument(f"--user-data-dir={profile_path}")
-# options.add_argument("--profile-directory=Default")
+options.add_argument(f"--user-data-dir={profile_path}")
+# ブラウザの起動設定を強化
 options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--disable-blink-features=AutomationControlled") # 自動操作フラグを隠す
+options.add_experimental_option("excludeSwitches", ["enable-automation"])
+options.add_experimental_option("useAutomationExtension", False)
+# 本物のブラウザっぽく見せるためのUser-Agent
+options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
-driver = webdriver.Chrome(options=options)     
+# ドライバー起動時にポート固定（クラッシュ対策）
+options.add_argument("--remote-debugging-port=9222") 
+
+# 一旦、既存のドライバ生成をこれに差し替えてください
+try:
+    driver = webdriver.Chrome(options=options)
+    # CDPを使って自動操作フラグを完全に消す（さらに強力）
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+      "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    })
+except Exception as e:
+    print(f"❌ Chrome起動失敗: {e}")
+    sys.exit(1)
+        
 wait = WebDriverWait(driver, 15)
 
 # 引数受取：13個受け取る完全版
@@ -111,10 +137,13 @@ category_slug = args[1].strip() or "all"
 if category_slug in ["すべて（all）", "すべて", "all"]:
     category_slug = "all" 
 brand_filter = args[2].strip()
+
+if brand_filter:
+    brand_id = get_brand_id(driver, region, brand_filter)
+
 min_price = float(args[3].strip() or 0)
 max_price = float(args[4].strip() or float("inf"))
 step = float(args[5].strip() or 0)
-# max_page = int(args[].strip() or 20)
 confirm_wait_str = args[6].strip()
 if confirm_wait_str == "手動確認" or confirm_wait_str == "":
     confirm_wait = 0
@@ -142,6 +171,8 @@ while current_min < max_price:
 
     if brand_filter:
         base_url += f"&k={brand_filter}"  # ✅ ブランド名がある場合のみ検索キーワードに指定
+    if brand_id:
+        base_url += f"&rh=p_123:{brand_id}"           
     if category_slug and category_slug != "all":
         base_url += f"&i={category_slug}"  # ✅ カテゴリスラッグがある場合は常にi=指定
 
@@ -159,7 +190,7 @@ while current_min < max_price:
     time.sleep(2)
 
     if current_min == min_price:
-        show_deliver_to_confirmation(confirm_wait)
+        show_deliver_to_confirmation(confirm_wait, brand_filter)
 
     items = []
     page = 1
