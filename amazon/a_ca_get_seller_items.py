@@ -206,19 +206,19 @@ while current_min < max_price:
                 except:
                     url = ""
 
+                # --- ▼ SECTION 01: ブランド取得の修正 ▼ ---
                 try:
+                    # まずは一番確実な方法（boldタグ付きのリンク）を探す
                     brand_el = product.find_element(By.CSS_SELECTOR, "a.a-size-base.a-text-bold")
                     brand = brand_el.text.strip()
                 except:
-
-                    # --- ▼ SECTION 01: ブランド取得の修正 ▼ ---
+                    # ダメなら span と a を両方探すフォールバック処理
                     try:
-                        # 商品カード内のすべての「ブランド名っぽい候補（aタグ）」を取得し、不要な文字列が含まれるものを除外する
-                        candidates = product.find_elements(By.CSS_SELECTOR, "a.a-size-base")
+                        candidates = product.find_elements(By.CSS_SELECTOR, "span.a-size-base, a.a-size-base")
                         brand = ""
                         for cand in candidates:
                             text = cand.text.strip()
-                            # 不要な文字列リスト（在庫や価格情報など）
+                            # 余計な文字を含まないものだけをブランドとして採用する
                             if text and "stock" not in text and "featured" not in text and "/" not in text and "$" not in text:
                                 brand = text
                                 break
@@ -230,7 +230,6 @@ while current_min < max_price:
                 # --- チェック完了後削除 ---
 
                 # ✅ 追加：ブランドフィルタリング処理
-                # brand_filter（あなたが指定したブランド名）が取得したbrandに含まれていなければスキップ
                 if brand_filter and brand_filter.lower() not in brand.lower():
                     continue
 
