@@ -30,7 +30,9 @@
                 </div>
             </div>
 
-            <a href="/" class="tabs-title">β Research ZSSS  Tool</a>
+            <!-- <a href="/" class="tabs-title">Research Tool</a> -->
+            <!-- <a href="/amazon/?tab=research" class="tabs-title">Research Tool</a> -->
+            <a href="/amazon/" class="tabs-title">Research Tool</a>
 
             <!-- ✅ 共通マーケットプレイス　選択プルダウンメニュー -->
             <div class="global-region" style="display:inline-block; margin-left:12px;">
@@ -42,19 +44,19 @@
                 </select>
             </div>            
 
-            <button class="tab active" data-tab="top">トップ</button>
-            <button class="tab" data-tab="research">リサーチ</button>
+            <!-- <button class="tab active" data-tab="top">トップ</button> -->
+            <button class="tab active" data-tab="research">リサーチ</button>
             <button class="tab" data-tab="option">オプション</button>
-            <button class="tab" data-tab="blacklist">ブラックリスト</button>
-            <button class="tab" data-tab="admin-blacklist">管理者ブラックリスト</button>
-            <button class="tab" data-tab="product_info">商品情報</button>
-            <button class="tab" data-tab="shipping-tools">その他ツール</button>
-            <button class="tab" data-tab="brand-gate">ブランドゲート</button>
+            <!-- <button class="tab" data-tab="blacklist">ブラックリスト</button> -->
+            <!-- <button class="tab" data-tab="admin-blacklist">管理者ブラックリスト</button> -->
+            <!-- <button class="tab" data-tab="product_info">商品情報</button> -->
+            <!-- <button class="tab" data-tab="shipping-tools">その他ツール</button> -->
+            <!-- <button class="tab" data-tab="brand-gate">ブランドゲート</button> -->
         </div>
     </div>
         
     <!-- ✅ TOPページ ✅ IPアドレス（場所）表示 -->
-    <div id="top" class="tab-content active">
+    <div id="top" class="tab-content {% if tab == 'top' %}active{% endif %}">
         <div class="top-layout">
             <!-- 左サイドバー -->
             <div class="sidebar" id="sidebar">
