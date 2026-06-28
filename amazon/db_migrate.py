@@ -45,6 +45,7 @@ BLACKLIST_BRAND_COLUMNS = {
 
 SELLER_LIST_COLUMNS = {
     "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+    "country_code": "TEXT DEFAULT ''",
     "seller_id": "TEXT NOT NULL",
     "shop_name": "TEXT",
     "hidden": "INTEGER NOT NULL DEFAULT 0",
@@ -110,14 +111,9 @@ def migrate_db(db_name):
     conn = get_conn(db_name)
     base = os.path.basename(db_name)
 
-    if base.endswith("_listed_items.db"):
-        migrate_table(conn, "listed_items", LISTED_ITEMS_COLUMNS)
-    elif base.endswith("_blacklist_asin.db"):
-        migrate_table(conn, "blacklist_asin", BLACKLIST_ASIN_COLUMNS)
-    elif base.endswith("_blacklist_brand.db"):
-        migrate_table(conn, "blacklist_brand", BLACKLIST_BRAND_COLUMNS)
-    elif base.endswith("_seller_list.db"):
+    if base == "seller_list.db":
         migrate_table(conn, "seller_list", SELLER_LIST_COLUMNS)
+
     elif base == "brand_master.db":
         migrate_table(conn, "brand_master", BRAND_MASTER_COLUMNS)
 
@@ -128,12 +124,8 @@ def migrate_db(db_name):
 def main():
     os.makedirs(DB_DIR, exist_ok=True)
 
-    # dbフォルダ内の全DBファイルを処理
-    for db_file in glob.glob(os.path.join(DB_DIR, "*.db")):
-        migrate_db(os.path.basename(db_file))
-        
-    # brand_master.db は必ず作成
-    migrate_db("brand_master.db")        
+    migrate_db("seller_list.db")
+    migrate_db("brand_master.db")    
 
 if __name__ == "__main__":
     main()

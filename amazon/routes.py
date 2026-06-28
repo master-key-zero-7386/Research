@@ -92,7 +92,7 @@ def save_seller_info():
             return jsonify({"status": "error", "message": "regionまたはseller_idが指定されていません。"}), 400
 
         # DBファイルを決定
-        db_path = os.path.join(BASE_DIR, "db", f"a_{region}_seller_list.db")
+        db_path = os.path.join(BASE_DIR, "db", "seller_list.db")
         if not os.path.exists(db_path):
             return jsonify({"status": "error", "message": f"DBファイルが存在しません: {db_path}"}), 404
 
@@ -100,23 +100,26 @@ def save_seller_info():
         cursor = conn.cursor()
 
         # セラーが存在するか確認
-        cursor.execute("SELECT 1 FROM seller_list WHERE seller_id = ?", (seller_id,))
+        cursor.execute(
+            "SELECT 1 FROM seller_list WHERE country_code = ? AND seller_id = ?",
+            (region.upper(), seller_id)
+        )
+        
         exists = cursor.fetchone()
 
         if exists:
             # 更新（last_used の操作はしない）
             cursor.execute(
-                "UPDATE seller_list SET shop_name=?, remarks=?, hidden=? WHERE seller_id=?",
-                (shop_name, remarks, hidden, seller_id)
+                "UPDATE seller_list SET shop_name=?, remarks=?, hidden=? WHERE country_code=? AND seller_id=?",
+                (shop_name, remarks, hidden, region.upper(), seller_id)
             )
-            print("UPDATE対象件数:", cursor.rowcount)
+            
         else:
             # 新規追加（last_used の初期値は 0）
             cursor.execute(
-                "INSERT INTO seller_list (seller_id, shop_name, hidden, remarks, review_lifetime, last_used) VALUES (?, ?, ?, ?, ?, 0)",
-                (seller_id, shop_name, hidden, remarks, 0)
+                "INSERT INTO seller_list (country_code, seller_id, shop_name, hidden, remarks, review_lifetime, last_used) VALUES (?, ?, ?, ?, ?, ?, 0)",
+                (region.upper(), seller_id, shop_name, hidden, remarks, 0)
             )
-            print("INSERT完了:", seller_id)
 
         conn.commit()
         conn.close()
@@ -136,7 +139,7 @@ def get_seller_info():
             return jsonify({"status": "error", "message": "region が指定されていません"}), 400
 
         # DBファイルを確認
-        db_path = os.path.join(BASE_DIR, "db", f"a_{region}_seller_list.db")
+        db_path = os.path.join(BASE_DIR, "db", "seller_list.db")
         if not os.path.exists(db_path):
             return jsonify({"status": "error", "message": f"DBファイルが存在しません: {db_path}"}), 404
 
@@ -146,20 +149,22 @@ def get_seller_info():
         if seller_id:
             cursor.execute("""
                 SELECT seller_id, shop_name, remarks, hidden
-                FROM seller_list WHERE seller_id = ?
-            """, (seller_id,))
-            row = cursor.fetchone()
+                FROM seller_list
+                WHERE country_code = ? AND seller_id = ?
+            """, (region.upper(), seller_id))
         else:
             cursor.execute("""
-                SELECT seller_id, shop_name, remarks, hidden 
-                FROM seller_list WHERE last_used = 1
+                SELECT seller_id, shop_name, remarks, hidden
+                FROM seller_list
+                WHERE country_code = ? AND last_used = 1
                 LIMIT 1
-            """)
-            row = cursor.fetchone()
+            """, (region.upper(),))
 
-            if not row:
-                conn.close()
-                return jsonify({"status": "not_found"}), 200
+        row = cursor.fetchone()
+
+        if not row:
+            conn.close()
+            return jsonify({"status": "not_found"}), 200
 
         conn.close()
 
@@ -189,7 +194,7 @@ def get_seller_list():
     if not region:
         return jsonify({"status": "error", "message": "region is required"}), 400
 
-    db_path = os.path.join(BASE_DIR, "db", f"a_{region}_seller_list.db")
+    db_path = os.path.join(BASE_DIR, "db", "seller_list.db")
     if not os.path.exists(db_path):
         return jsonify({"status": "error", "message": f"DB not found: {db_path}"}), 404
 
@@ -199,9 +204,26 @@ def get_seller_list():
         cursor = conn.cursor()
 
         if include_hidden:
-            cursor.execute("SELECT seller_id, shop_name FROM seller_list ORDER BY shop_name ASC")
+            cursor.execute(
+                """
+                SELECT seller_id, shop_name
+                FROM seller_list
+                WHERE country_code = ?
+                ORDER BY shop_name ASC
+                """,
+                (region.upper(),)
+            )
+
         else:
-            cursor.execute("SELECT seller_id, shop_name FROM seller_list WHERE hidden = 0 ORDER BY shop_name ASC")
+            cursor.execute(
+                """
+                SELECT seller_id, shop_name
+                FROM seller_list
+                WHERE country_code = ? AND hidden = 0
+                ORDER BY shop_name ASC
+                """,
+                (region.upper(),)
+            )
 
         rows = cursor.fetchall()
         conn.close()
@@ -249,73 +271,12 @@ def save_last_used_config(form_data):
     except Exception as e:
         pass
 
-def load_seller_list(region):
-    try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            config = json.load(f)
-
-        lists_dir = config.get("lists_dir", "lists")
-        csv_path = os.path.join(BASE_DIR, lists_dir, f"{region}_seller_list.csv") 
-
-        if not os.path.exists(csv_path):
-            return []
-
-        seller_list = []
-        with open(csv_path, "r", newline='', encoding="utf-8") as f:
-            reader = csv.reader(f)
-            next(reader)  # ヘッダーをスキップ
-            for row in reader:
-                if len(row) >= 10 and row[9].strip().upper() == "TRUE":
-                    continue
-                if len(row) >= 4:
-                    seller_list.append((row[2], row[3]))  # seller_id, shop_name
-                else:
-                    pass
-        
-        # ✅ 店名（shop_name）でA-Zソート
-        seller_list.sort(key=lambda x: x[1].lower())  # ✅ この行を追加
-    
-        return seller_list
-
-    except Exception as e:
-        pass
-        return []
-
 @amazon_bp.route("/")
 def index():
     seller_list = []
     region = request.args.get("region", "au").lower()
-    print("INDEX REGION >>>", region)  # チェック完了後削除
     tab = request.args.get("tab", "research")
 
-    # ✅ config.json から lists_dir を取得
-    lists_dir = "lists"
-    if os.path.exists(CONFIG_PATH):
-        try:
-            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                config = json.load(f)
-                lists_dir = config.get("lists_dir", "lists")
-        except Exception as e:
-            pass
-
-    # ✅ BASE_DIR + configのlists_dir からパス構成
-    csv_path = os.path.join(BASE_DIR, lists_dir, f"{region}_seller_list.csv")
-
-    if os.path.exists(csv_path):
-        with open(csv_path, newline='', encoding='utf-8') as csvfile:
-            reader = csv.reader(csvfile)
-            header = next(reader, None)  # ✅ ヘッダーを取得してスキップ
-            for row in reader:
-                if len(row) >= 4 and row[3]:
-                    seller_id = row[2]
-                    shop_name = row[3]
-                    seller_list.append((seller_id, shop_name))
-    else:
-        pass
-
-    seller_list.sort(key=lambda x: x[1].lower())
-
-    # ✅ config.json から last_used を取得
     last_used = {}
     if os.path.exists(CONFIG_PATH):
         try:
@@ -356,83 +317,35 @@ def process():
 
     save_last_used_config(data) 
 
-    if manual_seller_id != "":
-        seller_id = manual_seller_id
-        lists_dir = config.get("lists_dir", "lists")
-        csv_path = os.path.join(base_dir, lists_dir, f"{region}_seller_list.csv")
-        today = datetime.now().strftime("%Y-%m-%d")
-        exists = False
-
-        if os.path.exists(csv_path):
-            with open(csv_path, newline='', encoding='utf-8') as f:
-                reader = csv.reader(f)
-                for row in reader:
-                    if len(row) >= 3 and row[2].strip() == seller_id:
-                        exists = True
-                        break
-
-        remarks = data.get("remarks", "").replace("\n", " ").replace("\r", " ").strip()
-        brand = data.get("brand", "").strip()
-
-        shop_name = get_shop_name_from_seller_id(seller_id, region)
-        if not shop_name or shop_name == "取得失敗":
-            shop_name = "Unknown"
-
-        if not exists:
-            with open(csv_path, "a", newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                row = [""] * 10
-                row[0] = today
-                row[1] = today
-                row[2] = seller_id
-                row[3] = shop_name
-                row[9] = remarks
-                writer.writerow(row)
-
-
-    # uploaded_file = request.files.get('file')
-    # if uploaded_file and uploaded_file.filename != '':
-    #     filename = secure_filename(uploaded_file.filename)
-    #     file_path = os.path.join(UPLOAD_FOLDER, filename)
-    #     uploaded_file.save(file_path)
-
-    #     output_path = os.path.join(UPLOAD_FOLDER, f"processed_{filename}")
-    #     df = pd.read_csv(file_path)
-    #     df.to_csv(output_path, index=False, encoding="cp932") 
-
-    #     # ✅ 後処理：作業が終わったら削除
-    #     try:
-    #         send2trash(file_path)
-    #         send2trash(output_path)
-    #     except Exception as e:
-    #         print(f"❌ 削除失敗: {e}")        
-
     # ▼ 最後に追加：AU の場合のみ処理スクリプトを実行
-    if region in ("au", "us", "sg", "ca"):
+    if region:
         # script_name = f"a_{region}_get_seller_items.py" 
         script_name = "a_get_seller_items.py"
         script_path = os.path.join(os.getcwd(), "amazon", script_name)
 
-        seller_id = seller_id
-        brand = brand
-        min_price = min_price
-        max_price = max_price
+        # seller_id = seller_id
+        # brand = brand
+        # min_price = min_price
+        # max_price = max_price
         # max_page = max_page
         step_price = step_price.strip() if step_price else "10"
-        output_folder = output_folder
+        # output_folder = output_folder
         remarks = remarks.strip() if remarks else "未入力"
-        confirm_wait = confirm_wait
+        # confirm_wait = confirm_wait
         shop_name = get_shop_name_from_seller_id(seller_id, region) 
 
         # ✅ 実行ボタン押下時に last_used を更新
         try:
-            db_path = os.path.join(BASE_DIR, "db", f"a_{region}_seller_list.db")
+            db_path = os.path.join(BASE_DIR, "db", "seller_list.db")
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
-            cursor.execute("UPDATE seller_list SET last_used=0")
             cursor.execute(
-                "UPDATE seller_list SET last_used=1 WHERE seller_id=?",
-                (seller_id,)
+                "UPDATE seller_list SET last_used=0 WHERE country_code=?",
+                (region.upper(),)
+            )
+            cursor.execute(
+                "UPDATE seller_list SET last_used=1 WHERE country_code=? AND seller_id=?",
+                (region.upper(), seller_id)
             )
             conn.commit()
             conn.close()
@@ -460,29 +373,6 @@ def process():
         subprocess.Popen([sys.executable, script_path] + args)
         return redirect(url_for('amazon.index', region=region, tab="research", completed="true")) 
         
-    # ✅ キャッシュクリア対象パス（AU版・US版両対応にしてもよい）
-    if region == "au":
-        profile_dir = config.get("profile_dir_au", "")
-    elif region == "us":
-        profile_dir = config.get("profile_dir_us", "")
-    elif region == "sg":
-        profile_dir = config.get("profile_dir_sg", "")
-    else:
-        profile_dir = ""
-
-    cache_paths = [
-        os.path.join(profile_dir, "Cache"),
-        os.path.join(profile_dir, "Code Cache"),
-        os.path.join(profile_dir, "GPUCache"),
-    ]
-
-    for path in cache_paths:
-        try:
-            shutil.rmtree(path)
-        except Exception as e:
-            pass
-    return redirect(url_for('amazon.index', region=region, tab="top", completed="true"))   
-
 @amazon_bp.route("/save_config", methods=["POST"])
 def save_config():
     try:
@@ -502,12 +392,11 @@ def save_config():
             config["lists_dir"] = data["lists_folder"]
         if data.get("log_folder"):
             config["log_dir"] = data["log_folder"]
-        if data.get("profile_dir_au"):
-            config["profile_dir_au"] = data["profile_dir_au"]
-        if data.get("profile_dir_us"):
-            config["profile_dir_us"] = data["profile_dir_us"]
-        if data.get("profile_dir_sg"):
-            config["profile_dir_sg"] = data["profile_dir_sg"]
+
+        # ✅ Chromeプロファイル保存（全マーケット共通）
+        for key, value in data.items():
+            if key.startswith("profile_dir_") and value:
+                config[key] = value
 
         # ✅ 最終利用設定を保存（リージョン単位ではなく直近1件だけ）
         region = data.get("region", "").upper()  # 大文字で統一
@@ -592,12 +481,13 @@ def extract_asin_list_route():
     try:
         data = request.get_json() 
 
-        print(request.get_json())  # チェック完了後削除
-
         if not isinstance(data, dict):
             return jsonify({"status": "error", "message": "リクエストデータが不正です。"})
 
-        region = data.get("region", "au").lower()
+        region = data.get("region", "").lower()
+        if not region:
+            return jsonify({"status": "error", "message": "regionが指定されていません。"})
+
         files = data.get("files", [])
 
         if not files:
@@ -736,8 +626,6 @@ def download_file(region, filename):
         data_dir = config.get("data_dir", "data") 
         file_path = os.path.join(data_dir, region.lower(), filename) 
 
-        print("[DOWNLOAD PATH]", file_path, flush=True)  # チェック完了後削除
-
         if not os.path.isfile(file_path):
             return "ファイルが存在しません。", 404
 
@@ -763,7 +651,6 @@ def get_asin_file_list(region):
             reverse=True
         )
 
-        # return jsonify({"status": "success","files": [{"name": f, "url": f"/lists/{region}/{f}"} for f in file_list]})
         return jsonify({"status": "success","files": [{"name": f, "url": f"/amazon/download/{region}/{f}"} for f in file_list]})
 
     except Exception as e:
