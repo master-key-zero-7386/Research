@@ -49,3 +49,6 @@ Thumbs.db
 *.csv
 *.xlsx
 *.txt
+
+/data/
+/log/
