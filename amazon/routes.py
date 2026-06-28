@@ -30,14 +30,14 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 from .a_02extract_asin_list import run_asin_extraction
 
-
 bp = Blueprint("amazon", __name__)
 amazon_bp = bp
 
-#TRASH_DIR = r"C:\ZSSS_Tool_Trash"
-
 TRASH_DIR = os.path.join(BASE_DIR, "tool_trash")  # BASE_DIRはconstantsからimport済み
 os.makedirs(TRASH_DIR, exist_ok=True)
+
+amazon_bp = Blueprint("amazon", __name__, url_prefix="/amazon", template_folder="../templates")
+from flask import request, jsonify
 
 def get_shop_name_from_seller_id(seller_id, region="sg"):
     try:
@@ -77,45 +77,6 @@ def get_shop_name_from_seller_id(seller_id, region="sg"):
 def load_config_from_file():
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
-
-amazon_bp = Blueprint("amazon", __name__, url_prefix="/amazon", template_folder="../templates")
-from flask import request, jsonify
-
-# @amazon_bp.route("/", methods=["GET"])
-# def amazon_index():
-#     try:
-#         # ✅ config.json を読み込む
-#         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-#             config = json.load(f)
-
-#         # ✅ 画面表示用　固定パス　
-#         display_config = config.copy()
-#         display_config["data_dir"] = os.path.abspath(config.get("data_dir", ""))
-#         display_config["lists_dir"] = os.path.abspath(config.get("lists_dir", ""))
-#         display_config["log_dir"] = os.path.abspath(config.get("log_dir", ""))
-#         display_config["profile_dir_au"] = os.path.abspath(config.get("profile_dir_au", ""))
-#         display_config["profile_dir_us"] = os.path.abspath(config.get("profile_dir_us", ""))
-#         display_config["profile_dir_sg"] = os.path.abspath(config.get("profile_dir_sg", ""))  
-
-#         # ✅ クエリパラメータの region を優先的に取得
-#         region = request.args.get("region", "").lower()
-#         if region not in ["au", "us", "sg"]:
-#             region = config.get("last_used", {}).get("region", "au")  # fallback
-
-#         last_used = config.get("last_used", {})
-
-#         # ✅ セラーリストを取得
-#         seller_list = load_seller_list(region)
-
-#         return render_template(
-#             "index.html",
-#             folder_settings=display_config,
-#             last_used=last_used,
-#             region=region,
-#             seller_list=seller_list
-#         )
-#     except FileNotFoundError:
-#         return render_template("index.html", folder_settings={}, last_used={}, region="au", seller_list=[])
 
 @amazon_bp.route("/save_seller_info", methods=["POST"])  # DB化完了
 def save_seller_info():
@@ -429,26 +390,27 @@ def process():
                 writer.writerow(row)
 
 
-    uploaded_file = request.files.get('file')
-    if uploaded_file and uploaded_file.filename != '':
-        filename = secure_filename(uploaded_file.filename)
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        uploaded_file.save(file_path)
+    # uploaded_file = request.files.get('file')
+    # if uploaded_file and uploaded_file.filename != '':
+    #     filename = secure_filename(uploaded_file.filename)
+    #     file_path = os.path.join(UPLOAD_FOLDER, filename)
+    #     uploaded_file.save(file_path)
 
-        output_path = os.path.join(UPLOAD_FOLDER, f"processed_{filename}")
-        df = pd.read_csv(file_path)
-        df.to_csv(output_path, index=False, encoding="cp932") 
+    #     output_path = os.path.join(UPLOAD_FOLDER, f"processed_{filename}")
+    #     df = pd.read_csv(file_path)
+    #     df.to_csv(output_path, index=False, encoding="cp932") 
 
-        # ✅ 後処理：作業が終わったら削除
-        try:
-            send2trash(file_path)
-            send2trash(output_path)
-        except Exception as e:
-            print(f"❌ 削除失敗: {e}")        
+    #     # ✅ 後処理：作業が終わったら削除
+    #     try:
+    #         send2trash(file_path)
+    #         send2trash(output_path)
+    #     except Exception as e:
+    #         print(f"❌ 削除失敗: {e}")        
 
     # ▼ 最後に追加：AU の場合のみ処理スクリプトを実行
     if region in ("au", "us", "sg", "ca"):
-        script_name = f"a_{region}_get_seller_items.py" 
+        # script_name = f"a_{region}_get_seller_items.py" 
+        script_name = "a_get_seller_items.py"
         script_path = os.path.join(os.getcwd(), "amazon", script_name)
 
         seller_id = seller_id
@@ -568,40 +530,6 @@ def save_config():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@amazon_bp.route("/api/account", methods=["GET"])
-def get_account():
-    """config.json からアカウント情報（JP/US/AU/SG/UK）を返す"""
-    import os, json
-    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "config.json")
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        config = {}
-
-    # 互換: account ブロックが無ければ空文字で初期化
-    account = config.get("account") or {
-        "JP": {"seller_id": "", "refresh_token": ""},
-        "US": {"seller_id": "", "refresh_token": ""},
-        "AU": {"seller_id": "", "refresh_token": ""},
-        "SG": {"seller_id": "", "refresh_token": ""},
-        "UK": {"seller_id": "", "refresh_token": ""},
-        "CA": {"seller_id": "", "refresh_token": ""},
-    }
-
-    return jsonify({"status": "ok", "account": account}), 200
-
-@amazon_bp.route("/api/idconfig", methods=["GET"])
-def get_idconfig():
-    try:
-        import json, os
-        cfg_path = os.path.join("config", "config.json")
-        with open(cfg_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return jsonify({"status": "ok", "config": data.get("last_used", {})})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
-
 @amazon_bp.route("/load_config", methods=["GET"])
 def load_config():
     try:
@@ -663,6 +591,8 @@ def extract_asin_from_csv():
 def extract_asin_list_route():
     try:
         data = request.get_json() 
+
+        print(request.get_json())  # チェック完了後削除
 
         if not isinstance(data, dict):
             return jsonify({"status": "error", "message": "リクエストデータが不正です。"})
@@ -944,24 +874,61 @@ def extract_seller_ids():
         "output": seller_list_path
     })
 
-@amazon_bp.route("/extract_seller_from_asin", methods=["POST"]) 
-def extract_seller_from_asin():
-    """
-    セラーID抽出処理（ASINリストからSeleniumで抽出）
-    Web版Option機能 a_01extract_seller_id.py を呼び出す予定
-    """
-    try:
-        # 現時点ではベース処理のみ
-        return jsonify({"status": "success", "message": "セラーID抽出処理が開始されました（仮）"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
-
 # ---- marketplaceId から region名を決める ----
 def _region_from_mp(mp: str, cfg: dict) -> str:
     for reg, mid in (cfg.get("marketplace") or {}).items():
         if mp == mid:
             return reg.lower()
     return "eu"
+
+
+# @amazon_bp.route("/api/account", methods=["GET"])
+# def get_account():
+#     """config.json からアカウント情報（JP/US/AU/SG/UK）を返す"""
+#     import os, json
+#     config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "config.json")
+#     try:
+#         with open(config_path, "r", encoding="utf-8") as f:
+#             config = json.load(f)
+#     except FileNotFoundError:
+#         config = {}
+
+#     # 互換: account ブロックが無ければ空文字で初期化
+#     account = config.get("account") or {
+#         "JP": {"seller_id": "", "refresh_token": ""},
+#         "US": {"seller_id": "", "refresh_token": ""},
+#         "AU": {"seller_id": "", "refresh_token": ""},
+#         "SG": {"seller_id": "", "refresh_token": ""},
+#         "UK": {"seller_id": "", "refresh_token": ""},
+#         "CA": {"seller_id": "", "refresh_token": ""},
+#     }
+
+#     return jsonify({"status": "ok", "account": account}), 200
+
+# @amazon_bp.route("/api/idconfig", methods=["GET"])
+# def get_idconfig():
+#     try:
+#         import json, os
+#         cfg_path = os.path.join("config", "config.json")
+#         with open(cfg_path, "r", encoding="utf-8") as f:
+#             data = json.load(f)
+#         return jsonify({"status": "ok", "config": data.get("last_used", {})})
+#     except Exception as e:
+#         return jsonify({"status": "error", "message": str(e)})
+
+
+# @amazon_bp.route("/extract_seller_from_asin", methods=["POST"]) 
+# def extract_seller_from_asin():
+#     """
+#     セラーID抽出処理（ASINリストからSeleniumで抽出）
+#     Web版Option機能 a_01extract_seller_id.py を呼び出す予定
+#     """
+#     try:
+#         # 現時点ではベース処理のみ
+#         return jsonify({"status": "success", "message": "セラーID抽出処理が開始されました（仮）"})
+#     except Exception as e:
+#         return jsonify({"status": "error", "message": str(e)})
+
 
 
 # # --- shipping config 読み込み & 送料算定ユーティリティ ---
