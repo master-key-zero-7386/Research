@@ -319,19 +319,10 @@ def process():
 
     # ▼ 最後に追加：AU の場合のみ処理スクリプトを実行
     if region:
-        # script_name = f"a_{region}_get_seller_items.py" 
         script_name = "a_get_seller_items.py"
         script_path = os.path.join(os.getcwd(), "amazon", script_name)
-
-        # seller_id = seller_id
-        # brand = brand
-        # min_price = min_price
-        # max_price = max_price
-        # max_page = max_page
         step_price = step_price.strip() if step_price else "10"
-        # output_folder = output_folder
         remarks = remarks.strip() if remarks else "未入力"
-        # confirm_wait = confirm_wait
         shop_name = get_shop_name_from_seller_id(seller_id, region) 
 
         # ✅ 実行ボタン押下時に last_used を更新
@@ -444,7 +435,6 @@ def load_config():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @amazon_bp.route("/extract_asin_from_csv", methods=["POST"])
 def extract_asin_from_csv():
@@ -656,117 +646,119 @@ def get_asin_file_list(region):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
-@amazon_bp.route("/extract_seller_ids", methods=["POST"])
-def extract_seller_ids():
-    # 入力チェック
-    region = (request.form.get("region") or "").lower()
-    up_files = request.files.getlist("files") or ([request.files["file"]] if "file" in request.files else [])
-    if not region or not up_files:
-        return jsonify({"status": "error", "message": "プラットフォームとCSVファイルを指定してください。"}), 400  
-
-    # ----- 同時実行ロック: 開始 -----  
-    runtime_dir = os.path.join(os.getcwd(), "runtime", "locks")            
-    os.makedirs(runtime_dir, exist_ok=True)                                
-    lock_path = os.path.join(runtime_dir, f"extract_seller_ids_{region}.lock")
-
-    if os.path.exists(lock_path):                                            
-        return jsonify({                                                    
-            "status": "error",                                              
-            "message": "抽出処理がすでに実行中です。完了までお待ちください。"     
-        }), 423  # Locked                                                    
-
-    # ロック作成（PIDと時刻を記録しておくとデバッグしやすい）               
-    try:                                                                     
-        with open(lock_path, "w", encoding="utf-8") as f:                     
-            f.write(f"pid={os.getpid()} utc={datetime.utcnow().isoformat()}")
-    except Exception:                                                          
-        pass                                                              
-
-    def _unlock():                                                     
-        try:                                                          
-            if os.path.exists(lock_path):                          
-                os.remove(lock_path)                                       
-        except Exception:                                                   
-            pass                                                                
-
-    # 設定と各種パス
-    config = load_config_from_file()
-    base_data_dir = config.get("data_dir", "data")
-    lists_dir = config.get("lists_dir", "lists")
-    os.makedirs(lists_dir, exist_ok=True)
-
-    # seller_list の候補（どちらかを使う）
-    candidates = [
-        os.path.join(lists_dir, f"{region}_seller_list.csv"),      # 例: au_seller_list.csv
-        os.path.join(lists_dir, f"seller_list_{region}.csv"),      # 例: seller_list_au.csv
-    ]
-    seller_list_path = next((p for p in candidates if os.path.exists(p)), candidates[0])
-
-    # 事前の件数（重複排除してカウント）
-    def _read_ids(path: str) -> set:
-        ids = set()
-        if os.path.exists(path):
-            with open(path, newline="", encoding="utf-8-sig") as f:
-                for row in csv.reader(f):
-                    if row:
-                        ids.add(row[0].strip())
-        return ids
-
-    before_ids = _read_ids(seller_list_path)
-    before = len(before_ids)
-
-    # アップロードCSVを一時保存
-    upload_dir = os.path.join(base_data_dir, region, "_upload")
-    os.makedirs(upload_dir, exist_ok=True)
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    temp_csv = os.path.join(upload_dir, f"asin_upload_{ts}.csv")
-    up_files[0].save(temp_csv)
-
-    # ASIN→SellerID 抽出スクリプトを同期実行
-    script_path = os.path.join(os.getcwd(), "amazon", "a_04extract_seller_id.py")
-    try:
-        env = os.environ.copy()   
-        env["PYTHONIOENCODING"] = "utf-8"  
-
-        proc = subprocess.run(
-            [sys.executable, script_path, region, temp_csv],
-            cwd=os.getcwd(), capture_output=True, text=True, check=True, env=env, encoding="utf-8" 
-        )
-
-        if proc.stdout.strip():
-            logging.debug(f"[extract_seller_ids] stdout: {proc.stdout.strip()}")
-        if proc.stderr.strip():
-            logging.debug(f"[extract_seller_ids] stderr: {proc.stderr.strip()}")
-    except subprocess.CalledProcessError as e:
-        msg = f"抽出スクリプト失敗: {e.stderr.strip() or e.stdout.strip()}"
-        _unlock()
-        return jsonify({"status": "error", "message": msg}), 500
-
-    # スクリプトが別名で作った場合に備え、存在チェック
-    if not os.path.exists(seller_list_path):
-        other = candidates[1] if seller_list_path == candidates[0] else candidates[0]
-        if os.path.exists(other):
-            seller_list_path = other
-
-    # 実行後の件数と増分
-    after_ids = _read_ids(seller_list_path)
-    added = max(0, len(after_ids) - before)
-
-    _unlock() 
-
-    return jsonify({
-        "status": "success",
-        "message": f"{added} 件のセラーIDを抽出しました。",
-        "extracted": added,
-        "output": seller_list_path
-    })
-
 # ---- marketplaceId から region名を決める ----
 def _region_from_mp(mp: str, cfg: dict) -> str:
     for reg, mid in (cfg.get("marketplace") or {}).items():
         if mp == mid:
             return reg.lower()
     return "eu"
+
+# @amazon_bp.route("/extract_seller_ids", methods=["POST"])
+# def extract_seller_ids():
+#     # 入力チェック
+#     region = (request.form.get("region") or "").lower()
+#     up_files = request.files.getlist("files") or ([request.files["file"]] if "file" in request.files else [])
+#     if not region or not up_files:
+#         return jsonify({"status": "error", "message": "プラットフォームとCSVファイルを指定してください。"}), 400  
+
+#     # ----- 同時実行ロック: 開始 -----  
+#     runtime_dir = os.path.join(os.getcwd(), "runtime", "locks")            
+#     os.makedirs(runtime_dir, exist_ok=True)                                
+#     lock_path = os.path.join(runtime_dir, f"extract_seller_ids_{region}.lock")
+
+#     if os.path.exists(lock_path):                                            
+#         return jsonify({                                                    
+#             "status": "error",                                              
+#             "message": "抽出処理がすでに実行中です。完了までお待ちください。"     
+#         }), 423  # Locked                                                    
+
+#     # ロック作成（PIDと時刻を記録しておくとデバッグしやすい）               
+#     try:                                                                     
+#         with open(lock_path, "w", encoding="utf-8") as f:                     
+#             f.write(f"pid={os.getpid()} utc={datetime.utcnow().isoformat()}")
+#     except Exception:                                                          
+#         pass                                                              
+
+#     def _unlock():                                                     
+#         try:                                                          
+#             if os.path.exists(lock_path):                          
+#                 os.remove(lock_path)                                       
+#         except Exception:                                                   
+#             pass                                                                
+
+#     # 設定と各種パス
+#     config = load_config_from_file()
+#     base_data_dir = config.get("data_dir", "data")
+#     lists_dir = config.get("lists_dir", "lists")
+#     os.makedirs(lists_dir, exist_ok=True)
+
+#     # seller_list の候補（どちらかを使う）
+#     candidates = [
+#         os.path.join(lists_dir, f"{region}_seller_list.csv"),      # 例: au_seller_list.csv
+#         os.path.join(lists_dir, f"seller_list_{region}.csv"),      # 例: seller_list_au.csv
+#     ]
+#     seller_list_path = next((p for p in candidates if os.path.exists(p)), candidates[0])
+
+#     # 事前の件数（重複排除してカウント）
+#     def _read_ids(path: str) -> set:
+#         ids = set()
+#         if os.path.exists(path):
+#             with open(path, newline="", encoding="utf-8-sig") as f:
+#                 for row in csv.reader(f):
+#                     if row:
+#                         ids.add(row[0].strip())
+#         return ids
+
+#     before_ids = _read_ids(seller_list_path)
+#     before = len(before_ids)
+
+#     # アップロードCSVを一時保存
+#     upload_dir = os.path.join(base_data_dir, region, "_upload")
+#     os.makedirs(upload_dir, exist_ok=True)
+#     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+#     temp_csv = os.path.join(upload_dir, f"asin_upload_{ts}.csv")
+#     up_files[0].save(temp_csv)
+
+#     # ASIN→SellerID 抽出スクリプトを同期実行
+#     script_path = os.path.join(os.getcwd(), "amazon", "a_04extract_seller_id.py")
+#     try:
+#         env = os.environ.copy()   
+#         env["PYTHONIOENCODING"] = "utf-8"  
+
+#         proc = subprocess.run(
+#             [sys.executable, script_path, region, temp_csv],
+#             cwd=os.getcwd(), capture_output=True, text=True, check=True, env=env, encoding="utf-8" 
+#         )
+
+#         if proc.stdout.strip():
+#             logging.debug(f"[extract_seller_ids] stdout: {proc.stdout.strip()}")
+#         if proc.stderr.strip():
+#             logging.debug(f"[extract_seller_ids] stderr: {proc.stderr.strip()}")
+#     except subprocess.CalledProcessError as e:
+#         msg = f"抽出スクリプト失敗: {e.stderr.strip() or e.stdout.strip()}"
+#         _unlock()
+#         return jsonify({"status": "error", "message": msg}), 500
+
+#     # スクリプトが別名で作った場合に備え、存在チェック
+#     if not os.path.exists(seller_list_path):
+#         other = candidates[1] if seller_list_path == candidates[0] else candidates[0]
+#         if os.path.exists(other):
+#             seller_list_path = other
+
+#     # 実行後の件数と増分
+#     after_ids = _read_ids(seller_list_path)
+#     added = max(0, len(after_ids) - before)
+
+#     _unlock() 
+
+#     return jsonify({
+#         "status": "success",
+#         "message": f"{added} 件のセラーIDを抽出しました。",
+#         "extracted": added,
+#         "output": seller_list_path
+#     })
+
+
 
 
 # @amazon_bp.route("/api/account", methods=["GET"])

@@ -160,62 +160,6 @@ window.addEventListener("DOMContentLoaded", () => {
         document.getElementById("output_folder").value = fullPath;
     } 
 
-    // ✅ セラーID抽出：実行ボタン処理
-    document.getElementById("sellerExtractBtn").addEventListener("click", function () {
-        const region = document.getElementById("globalRegion").value;
-        const btn = document.getElementById("sellerExtractBtn");  
-        const originalLabel = btn.textContent;
-        btn.disabled = true;  
-        btn.textContent = "抽出中…";   
-        
-        document.getElementById("sellerCsvInput").click();
-
-        document.getElementById("sellerCsvInput").addEventListener("change", function () {
-            const files = Array.from(this.files);
-            if (files.length === 0) {  
-                btn.disabled = false; 
-                btn.textContent = originalLabel; 
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append("region", region);
-            files.forEach(file => formData.append("files", file));
-
-            fetch("/amazon/extract_seller_ids", {
-                method: "POST",
-                body: formData
-            })
-
-            .then(async (response) => { 
-                if (response.status === 423) {
-                    const data = await response.json().catch(() => ({}));
-                    alert(data.message || "抽出処理がすでに実行中です。");
-                    throw new Error("locked");        
-                }
-                return response.json();
-            })
-
-            .then(data => {
-                if (data.status === "success") { 
-                    const n = data.count ?? data.extracted ?? data.extracted_count ?? 0; 
-                    alert(`抽出が完了しました（${n}件）。`);
-                } else {
-                    alert(`❌ エラー: ${data.message || "処理に失敗しました"}`);  
-                }
-            })
-            .catch(error => {
-                if (error.message !== "locked") {  
-                    alert("通信エラー: " + error);
-                }
-            })
-            .finally(() => {    
-                btn.disabled = false;                   
-                btn.textContent = originalLabel;                    
-                this.value = "";  
-            });  
-        }, { once: true });
-    });
 
     // ✅ 実行ボタンの処理
     function runExtraction() {
