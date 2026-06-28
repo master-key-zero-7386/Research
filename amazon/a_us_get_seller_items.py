@@ -271,7 +271,7 @@ while current_min < max_price:
 
     now_jst = datetime.utcnow() + timedelta(hours=9)  # ✅ タイムスタンプ生成
     timestamp = now_jst.strftime("%Y%m%d_%H%M")    
-    filename = f"AU_{timestamp}_{seller_id}_{category_part}_{brand_part}_{price_range}.csv" 
+    filename = f"US_{timestamp}_{seller_id}_{category_part}_{brand_part}_{price_range}.csv" 
     csv_path = os.path.join(output_folder, filename)
 
     with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
