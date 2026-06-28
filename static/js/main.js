@@ -1,6 +1,4 @@
 let dataDir = "";
-const fmtJPY = (v) => (v == null ? "-" : Math.round(v).toLocaleString("ja-JP"));
-const fmtPrice = (v) => (v == null ? "-" : Number(v).toFixed(2));
 
 window.addEventListener("DOMContentLoaded", () => {
 
@@ -49,15 +47,6 @@ window.addEventListener("DOMContentLoaded", () => {
             extractASINFromSelected();
         }
     });
-    // ✅ リロード後に seller_id を復元
-    const index = localStorage.getItem("nextSellerIndex");
-    if (index !== null) {
-        const select = document.getElementById("seller_id");
-        if (select && select.options.length > index) {
-            select.selectedIndex = index;
-        }
-        localStorage.removeItem("nextSellerIndex");
-    }
 
     // ✅ regionごとの config を取得
     const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase(); 
@@ -66,8 +55,6 @@ window.addEventListener("DOMContentLoaded", () => {
         .then(response => response.json())
         .then(data => {
             if (data.status === "success") {
-                const lastUsed = data.last_used || {};
-                configData = lastUsed;
 
                 dataDir = data.data_dir || "data";  // ✅ data_dir に修正
 
@@ -79,15 +66,6 @@ window.addEventListener("DOMContentLoaded", () => {
                 // ✅ セラーリストをロードしてから選択復元
                 loadSellerList(region);
                 updateStoreButtonState();
-
-                // その他の値を復元（DBから取る項目は空にしておく）
-                document.getElementById("manual_seller_id").value = "";
-                document.getElementById("remarks").value = ""; 
-                document.getElementById("hidden").checked = false; 
-                document.getElementById("brand").value = lastUsed.brand || "";
-                document.getElementById("min_price").value = lastUsed.min_price || "";
-                document.getElementById("max_price").value = lastUsed.max_price || "";
-                document.getElementById("step_price").value = lastUsed.step_price || "";
 
                 // ✅ 出力フォルダ表示もプルダウン基準
                 updateOutputFolderDisplay(region);
@@ -139,7 +117,6 @@ window.addEventListener("DOMContentLoaded", () => {
         const dropdownValue = document.getElementById("seller_id").value.trim();
         const sellerId = manualInput !== "" ? manualInput : dropdownValue;
         const region = document.getElementById("globalRegion").value.toLowerCase();
-        //const baseUrl = region === "au" ? "https://www.amazon.com.au/sp?seller=" : "https://www.amazon.com/sp?seller=";
         let baseUrl = "";
         if (region === "au") {
             baseUrl = "https://www.amazon.com.au/sp?seller=";
@@ -265,18 +242,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
     const tabs = document.querySelectorAll('.tab');
     const contents = document.querySelectorAll('.tab-content');
-    const targetTab = getParam("tab");
-    
-    if (targetTab) {
-            tabs.forEach(t => t.classList.remove('active'));
-            contents.forEach(c => c.classList.remove('active'));
-            const activeTab = document.querySelector(`.tab[data-tab="${targetTab}"]`);
-            const activeContent = document.getElementById(targetTab);
-            if (activeTab && activeContent) {
-                activeTab.classList.add('active');
-                activeContent.classList.add('active');
-            }
-        }
 
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
