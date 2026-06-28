@@ -1,16 +1,16 @@
 import sys
 import os
 from amazon.routes import amazon_bp
-from amazon.routes_blacklist import blacklist_bp
-from tools.dhl_routes import dhl_bp
-from tools.pdf_routes import pdf_bp
+# from amazon.routes_blacklist import blacklist_bp
+# from tools.dhl_routes import dhl_bp
+# from tools.pdf_routes import pdf_bp
 from flask import Flask, render_template, jsonify, request 
 import json
 import codecs
 from utils.config_loader import cfg, get_debug_mode
 from amazon.routes import amazon_bp
-from amazon.csv_import import csv_import_bp
-from amazon.routes_listing import listing_bp
+# from amazon.csv_import import csv_import_bp
+# from amazon.routes_listing import listing_bp
 import amazon.db_migrate as db_migrate  
 
 # TEST
@@ -54,11 +54,11 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # Blueprint 登録
 app.register_blueprint(amazon_bp, url_prefix="/amazon")
-app.register_blueprint(blacklist_bp, url_prefix="/blacklist")
-app.register_blueprint(dhl_bp, url_prefix="/tools/dhl") 
-app.register_blueprint(pdf_bp, url_prefix="/tools/pdf") 
-app.register_blueprint(csv_import_bp, url_prefix="/amazon")
-app.register_blueprint(listing_bp, url_prefix="/amazon")
+# app.register_blueprint(blacklist_bp, url_prefix="/blacklist")
+# app.register_blueprint(dhl_bp, url_prefix="/tools/dhl") 
+# app.register_blueprint(pdf_bp, url_prefix="/tools/pdf") 
+# app.register_blueprint(csv_import_bp, url_prefix="/amazon")
+# app.register_blueprint(listing_bp, url_prefix="/amazon")
 
 @app.route("/")
 def index():

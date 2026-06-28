@@ -1,4 +1,5 @@
-# このセクションは新規追加
+# ファイル名：image.py
+
 from amazon.db import get_conn
 
 def build_image_block(asin, region, catalog_jp, catalog_rg):

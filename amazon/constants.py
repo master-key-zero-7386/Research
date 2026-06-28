@@ -1,5 +1,6 @@
+# ファイル名：amazon/constants.py
+
 import os
-from utils.config_loader import cfg, get_debug_mode
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 GPT_KEY_PATH = os.path.join(BASE_DIR, "gpt_key", "gpt_key.txt")

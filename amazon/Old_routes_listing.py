@@ -1,3 +1,5 @@
+# ファイル名：routes_listing.py
+
 from flask import Blueprint, request, jsonify, current_app
 import os
 from amazon.db import get_conn

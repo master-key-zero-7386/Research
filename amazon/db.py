@@ -1,3 +1,5 @@
+# ファイル名：db.py
+
 import os
 import sqlite3
 
