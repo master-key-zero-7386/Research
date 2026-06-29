@@ -126,6 +126,43 @@ def save_seller_info():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@amazon_bp.route("/delete_seller", methods=["POST"])
+def delete_seller():
+    try:
+        region = request.form.get("region", "").upper()
+        seller_id = request.form.get("seller_id", "").strip()
+
+        if not region or not seller_id:
+            return jsonify({
+                "status": "error",
+                "message": "region または seller_id が指定されていません。"
+            }), 400
+
+        db_path = os.path.join(BASE_DIR, "db", "seller_list.db")
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            DELETE FROM seller_list
+            WHERE country_code = ?
+              AND seller_id = ?
+        """, (region, seller_id))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            "status": "success",
+            "message": "削除しました。"
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+        
 @amazon_bp.route("/get_seller_info")  # DB化完了
 def get_seller_info():
     try:
@@ -203,10 +240,10 @@ def get_seller_list():
         if include_hidden:
             cursor.execute(
                 """
-                SELECT seller_id, shop_name
+                SELECT seller_id, shop_name, hidden
                 FROM seller_list
                 WHERE country_code = ?
-                ORDER BY shop_name ASC
+                ORDER BY shop_name COLLATE NOCASE ASC
                 """,
                 (region.upper(),)
             )
@@ -214,10 +251,10 @@ def get_seller_list():
         else:
             cursor.execute(
                 """
-                SELECT seller_id, shop_name
+                SELECT seller_id, shop_name, hidden
                 FROM seller_list
                 WHERE country_code = ? AND hidden = 0
-                ORDER BY shop_name ASC
+                ORDER BY shop_name COLLATE NOCASE ASC
                 """,
                 (region.upper(),)
             )
@@ -225,10 +262,11 @@ def get_seller_list():
         rows = cursor.fetchall()
         conn.close()
 
-        for seller_id, shop_name in rows:
+        for seller_id, shop_name, hidden in rows:
             seller_list.append({
                 "seller_id": seller_id,
-                "seller_name": shop_name
+                "seller_name": shop_name,
+                "hidden": hidden
             })
 
     except Exception as e:
@@ -642,12 +680,5 @@ def get_asin_file_list(region):
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
-
-# ---- marketplaceId から region名を決める ----
-def _region_from_mp(mp: str, cfg: dict) -> str:
-    for reg, mid in (cfg.get("marketplace") or {}).items():
-        if mp == mid:
-            return reg.lower()
-    return "eu"
 
 

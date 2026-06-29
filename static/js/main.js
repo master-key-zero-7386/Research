@@ -275,6 +275,7 @@ window.addEventListener("DOMContentLoaded", () => {
         if (manualInput) manualInput.addEventListener('input', updateStoreButtonState);
         updateStoreButtonState();
 
+        // 保存
         const saveBtn = document.getElementById("saveSellerBtn");
         if (saveBtn) {
             saveBtn.addEventListener("click", function () {
@@ -316,6 +317,61 @@ window.addEventListener("DOMContentLoaded", () => {
             });
         }
 
+        // 削除
+        const deleteBtn = document.getElementById("deleteSellerBtn");
+        if (deleteBtn) {
+            deleteBtn.addEventListener("click", async function () {
+
+                const sellerId = document.getElementById("manual_seller_id").value.trim();
+
+                if (!sellerId) {
+                    alert("削除するセラーを選択してください。");
+                    return;
+                }
+
+                if (!confirm("このセラーを削除しますか？")) {
+                    return;
+                }
+
+                const region = document.getElementById("globalRegion").value.toLowerCase();
+
+                const formData = new URLSearchParams();
+                formData.append("region", region);
+                formData.append("seller_id", sellerId);
+
+                fetch("/amazon/delete_seller", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData.toString()
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === "success") {
+
+                        loadSellerList(region);
+
+                        document.getElementById("seller_id").value = "";
+                        document.getElementById("manual_seller_id").value = "";
+                        document.getElementById("shop_name").value = "";
+                        document.getElementById("remarks").value = "";
+                        document.getElementById("hidden").checked = false;
+
+                        updateStoreButtonState();
+
+                        // alert("削除しました。");
+
+                    } else {
+                        alert(data.message || "削除に失敗しました。");
+                    }
+                })
+                .catch(error => {
+                    alert("通信エラー: " + error);
+                });
+
+            });
+        }        
         // ✅ ページロード時にセラーリストを初期ロード
         window.addEventListener("load", function () {
             const region = document.getElementById("globalRegion").value.toLowerCase();
@@ -344,7 +400,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
             // 🔽 プルダウン選択状態を反映
             const dropdown = document.getElementById("seller_id");
-            if (dropdown && data.seller_id && seller_id !== "") { 
+            if (dropdown && data.seller_id) {
                 let found = false;
                 for (let opt of dropdown.options) {
                     if (opt.value === data.seller_id) {
@@ -367,11 +423,15 @@ window.addEventListener("DOMContentLoaded", () => {
             }            
 
             // 🔽 入力欄に反映
-            const shopInput    = document.getElementById("shop_name");
-            const remarksInput = document.getElementById("remarks");
+            const sellerIdInput = document.getElementById("manual_seller_id");
+            const shopInput     = document.getElementById("shop_name");
+            const remarksInput  = document.getElementById("remarks");
+            const hiddenCheck   = document.getElementById("hidden");
 
-            if (shopInput)    shopInput.value    = data.shop_name || "";
-            if (remarksInput) remarksInput.value = data.remarks || "";
+            if (sellerIdInput) sellerIdInput.value = data.seller_id || "";
+            if (shopInput)     shopInput.value     = data.shop_name || "";
+            if (remarksInput)  remarksInput.value  = data.remarks || "";
+            if (hiddenCheck)   hiddenCheck.checked = (data.hidden === "TRUE");
 
         } catch (err) {
             console.error("get_seller_info error:", err);
@@ -554,17 +614,16 @@ window.addEventListener("DOMContentLoaded", () => {
                 sellers.forEach(seller => {
                     const option = document.createElement("option");
                     option.value = seller.seller_id;
+                    const mark = seller.hidden ? "🚫 " : "";
                     option.text  = seller.seller_name 
-                                ? `${seller.seller_name} (${seller.seller_id})`
-                                : seller.seller_id;
+                                ? `${mark}${seller.seller_name} (${seller.seller_id})`
+                                : `${mark}${seller.seller_id}`;
                     select.appendChild(option);
                 });
 
                 // ✅ リスト更新後に last_used を反映
-                // get_seller_info(region);
-                if (select.value !== "") { // ここを修正
-                    get_seller_info(region); // ここを修正
-                }                
+                get_seller_info(region);
+                // }                
             })
             .catch(err => console.error("❌ get_seller_list error:", err));
     }

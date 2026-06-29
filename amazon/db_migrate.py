@@ -14,35 +14,6 @@ def get_conn(db_name: str):
     return conn
 
 # --- スキーマ定義 ---
-LISTED_ITEMS_COLUMNS = {
-    "asin": "TEXT NOT NULL",
-    "sku": "TEXT NOT NULL",
-    "jp_title": "TEXT",
-    "region_title": "TEXT",
-    "jp_brand": "TEXT",
-    "region_brand": "TEXT",
-    "image_url": "TEXT",
-    "status": "TEXT NOT NULL DEFAULT 'pre'",
-    "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-    "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-}
-
-BLACKLIST_ASIN_COLUMNS = {
-    "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-    "asin": "TEXT NOT NULL",
-    "note": "TEXT",
-    "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-}
-
-BLACKLIST_BRAND_COLUMNS = {
-    "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-    "Brand": "TEXT NOT NULL",
-    "Rank": "TEXT",
-    "note": "TEXT",
-    "JapanBrand": "TEXT",
-    "timestamp": "TIMESTAMP"
-}
-
 SELLER_LIST_COLUMNS = {
     "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
     "country_code": "TEXT DEFAULT ''",
@@ -50,7 +21,6 @@ SELLER_LIST_COLUMNS = {
     "shop_name": "TEXT",
     "hidden": "INTEGER NOT NULL DEFAULT 0",
     "remarks": "TEXT",
-    "review_lifetime": "INTEGER",
     "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
     "last_used": "INTEGER DEFAULT 0"
 }
@@ -80,23 +50,20 @@ def migrate_table(conn, table_name, schema_dict):
 
     if not existing:
 
-        if table_name == "brand_master":
-            cur.execute("""
-                CREATE TABLE brand_master (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    marketplace TEXT NOT NULL,
-                    brand_name TEXT NOT NULL,
-                    brand_id TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (marketplace, brand_name)
-                )
-            """)
+        if table_name == "seller_list":
+            cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
+            cur.execute(f"CREATE TABLE seller_list ({cols_def})")
+
+        elif table_name == "brand_master":
+            cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
+            cur.execute(f"CREATE TABLE brand_master ({cols_def})")
+
         else:
             cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
             cur.execute(f"CREATE TABLE {table_name} ({cols_def})")
 
         print(f"[CREATE] {table_name}")
+
     else:
         # カラム追加（DEFAULT CURRENT_TIMESTAMP は外す）
         for col, dtype in schema_dict.items():
@@ -104,6 +71,23 @@ def migrate_table(conn, table_name, schema_dict):
                 dtype_no_default = dtype.replace("DEFAULT CURRENT_TIMESTAMP", "").strip()
                 cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} {dtype_no_default}")
                 print(f"[ALTER] {table_name}: add {col}")
+
+    conn.commit()
+
+    # ---------- UNIQUE INDEX ----------
+    if table_name == "seller_list":
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS
+            idx_seller_country_unique
+            ON seller_list(country_code, seller_id)
+        """)
+
+    elif table_name == "brand_master":
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS
+            idx_brand_marketplace_unique
+            ON brand_master(marketplace, brand_name)
+        """)
 
     conn.commit()
 
