@@ -1,7 +1,4 @@
 # ======================================================
-# Copyright (c) 2026 ZSSS
-# All Rights Reserved.
-# ------------------------------------------------------
 # ファイル名: amazon/a_get_seller_items.py
 # 目的: ASIN取得
 # =======================================================
@@ -58,8 +55,8 @@ def show_deliver_to_confirmation(confirm_wait, brand_filter):
 
     label_text = (
         "以下の内容を確認してください。\n\n"
-        "① Deliver to が販売予定の国に設定されている\n"
-        f"② ブランド「{brand_filter}」に ✓ が付いている"
+        "Deliver to が販売予定の国に設定されている\n"
+        # f"② ブランド「{brand_filter}」に ✓ が付いている"
     )
 
     if confirm_wait > 0:

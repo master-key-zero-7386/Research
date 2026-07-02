@@ -1,5 +1,5 @@
 @echo off
 call C:\python_env\venv\Scripts\activate
-cd /d C:\zsss_research_dev
+cd /d C:\research_tool
 python app.py
 pause

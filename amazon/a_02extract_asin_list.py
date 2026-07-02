@@ -9,7 +9,7 @@ if get_debug_mode():
     print("[MODULE]", os.path.abspath(__file__))
     # print("[TRASH_DIR_ACTIVE]", TOOL_TRASH_DIR)
 
-TOOL_TRASH_DIR = r"C:\ZSSS_Tool_Trash"  
+TOOL_TRASH_DIR = r"C:\Research_Trash"
 
 
 def run_asin_extraction(input_files, region, data_dir):
@@ -71,7 +71,7 @@ def _ensure_tool_trash():
     os.makedirs(TOOL_TRASH_DIR, exist_ok=True) 
 
 def move_to_tool_trash(src_path: str):  
-    """削除せず C:\ZSSS_Tool_Trash へ退避""" 
+    """削除せず C:\Research_Tool_Trash へ退避""" 
     if not os.path.exists(src_path):  
         return  
     _ensure_tool_trash() 

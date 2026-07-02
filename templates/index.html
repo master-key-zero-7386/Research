@@ -3,7 +3,7 @@
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
     <meta charset="UTF-8">
-    <title>Research ZSSS</title>
+    <title>Research Tool</title>
 
     <!-- DataTables 読み込み -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
@@ -22,16 +22,6 @@
 
     <div class="wrap" id="app-root">
         <div class="tabs">
-            <!-- アカウントメニュー -->
-            <div id="user-menu" class="user-menu">
-                <button id="menu-btn" class="menubtn" title="メニュー">&#9776;</button>
-                <div id="user-dropdown" class="menu" hidden>
-                    <!-- <div class="menuitem" data-action="open-account">アカウント</div> -->
-                </div>
-            </div>
-
-            <!-- <a href="/" class="tabs-title">Research Tool</a> -->
-            <!-- <a href="/amazon/?tab=research" class="tabs-title">Research Tool</a> -->
             <a href="/amazon/" class="tabs-title">Research Tool</a>
 
             <!-- ✅ 共通マーケットプレイス　選択プルダウンメニュー -->
@@ -44,126 +34,15 @@
                 </select>
             </div>            
 
-            <!-- <button class="tab active" data-tab="top">トップ</button> -->
             <button class="tab active" data-tab="research">リサーチ</button>
             <button class="tab" data-tab="option">オプション</button>
-            <!-- <button class="tab" data-tab="blacklist">ブラックリスト</button> -->
-            <!-- <button class="tab" data-tab="admin-blacklist">管理者ブラックリスト</button> -->
-            <!-- <button class="tab" data-tab="product_info">商品情報</button> -->
-            <!-- <button class="tab" data-tab="shipping-tools">その他ツール</button> -->
-            <!-- <button class="tab" data-tab="brand-gate">ブランドゲート</button> -->
+
         </div>
     </div>
         
-    <!-- ✅ TOPページ ✅ IPアドレス（場所）表示 -->
-    <div id="top" class="tab-content {% if tab == 'top' %}active{% endif %}">
-        <div class="top-layout">
-            <!-- 左サイドバー -->
-            <div class="sidebar" id="sidebar">
-                <button class="sidebar-btn active" data-target="dashboard">Dashboard</button>
-                <button class="sidebar-btn" data-target="csv-import">CSV Import</button>
-                <button class="sidebar-btn" data-target="prelisting">Pre-Listing</button>
-                <button class="sidebar-btn" data-target="listing">ALL-Listing</button>
-            </div>
-            <!-- ✅ サイドバーの外に移動したハンドル -->
-            <div class="collapse-handle" id="sidebar-collapse">＜</div>
 
-            <!-- 右メインパネル -->
-            <div class="main-panel">
-                <div id="dashboard" class="subtab-content active">
-                    <h3>DASH BORD</h3>
-                    <p><strong>現在のIPロケーション：</strong> <span id="ip-location">取得中...</span></p>
-                    <p><strong>最終ログ履歴：</strong> <span id="log-box">取得中...</span></p>
-                </div>
-                
-                <div id="csv-import" class="subtab-content" hidden>
-                    <h3>CSV Import</h3>
 
-                    <input type="file" id="csvFileInput" accept=".csv" style="display:none;" />
-                    
-                    <!-- CSVファイル選択 -->
-                    <div class="file-input-row"> 
-                        <div class="file-input-wrapper">
-                            <div class="file-input-row">
-                                <input type="text" id="csvFileName" class="file-input-text" placeholder="出品国のCSVファイルを選択してください" readonly />
-                            <button type="button" id="csvUploadBtn" class="btn-blue">アップロード</button>
-                            </div>
-                        </div>
-                    </div>    
-                
-                    <!-- 結果表示エリア -->
-                    <div id="csvResultArea" style="margin-top:20px;">
-
-                        <!-- 出品可能 -->
-                        <div class="csv-result-block">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <h3 style="margin:0;">新規登録</h3>
-                                <button id="commitBtn" class="btn-blue">登　録</button>
-                            </div>
-                            <p>Amazonに新規登録します　一回に登録するASIN数は1000件程度を推奨</p>
-                            <table id="csvOkTable" class="display">
-                                <thead><tr><th>ASIN</th><th>SKU</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-
-                        <!-- 重複 -->
-                        <div class="csv-result-block">
-                            <h3>ASIN重複</h3>
-                            <p>このASINはすでに登録されています</p>
-                            <table id="csvListedTable" class="display">
-                                <thead><tr><th>ASIN</th><th></th></tr></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-
-                        <!-- ブラックリスト -->
-                        <div class="csv-result-block">
-                            <h3>ブラックリストASIN</h3>
-                            <p>このASINはブラックリストのため登録できません</p>
-                            <table id="csvBlacklistTable" class="display">
-                                <thead><tr><th>ASIN</th><th>SKU</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>                
-
-                <div id="prelisting" class="subtab-content" hidden>
-                    <h3>Pre-Listing</h3>
-
-                    <!-- 結果表示エリア -->
-                    <table id="preListingTable" class="display zsss-listing-table">
-                        <thead>
-                            <tr>
-                                <th>商品情報</th>
-                                <th>操作・画像</th>
-                                <th>セラー・価格情報</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-
-                <div id="listing" class="subtab-content" hidden>
-                    <h3>ALL-Listing</h3>
-
-                    <!-- 結果表示エリア -->
-                    <table id="allListingTable" class="display zsss-listing-table">
-                        <thead>
-                            <tr>
-                                <th>商品情報</th>
-                                <th>操作・画像</th>
-                                <th>セラー・価格情報</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- ✅ リサーチ（JadeGate と同じ構造に統一） -->
+    <!-- ✅ リサーチ -->
     <div id="research" class="tab-content {% if tab == 'research' %}active{% endif %}">
         <div class="card">
             <div class="row">
@@ -295,308 +174,13 @@
             <!-- ファイル一覧（チェックボックス付き） -->
             <div id="asin-file-list"></div>
         </div>    <!-- ASIN抽出用ファイル一覧ここまで -->
-
-        <!-- 2. セラーID抽出 -->
-        <!-- <div class="card">
-            <h2>セラーID抽出</h2>
-
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-                <div class="btn-row">
-                    <button id="sellerExtractBtn" class="btn-blue" style="margin-left:20px;">ＩＤ抽出</button>
-                    <input type="file" id="sellerCsvInput" accept=".csv" style="display:none;">
-                    <button id="unlockSellerIdsBtn" class="btn-blue" style="margin-left:20px;">ロック解除</button>
-                </div>
-            </div>
-        </div> -->
     </div> <!-- ✅ option タブの閉じタグ -->    
-
-
-    <!-- ✅ ブラックリストタブ -->    
-    <div id="blacklist" class="tab-content">
-        <div class="card">
-            <div class="row">
-                <h2>ブラックリスト登録</h2>
-                <p>ASIN/ブランドを登録できます</p>
-                <div id="bl-list-placeholder">（一覧は後で実装）</div>
-            </div>        
-        </div>
-    </div> <!-- ✅ Blacklist タブの閉じタグ -->
-
-    <!-- ✅ 管理者ブラックリストタブ -->    
-    <div id="admin-blacklist" class="tab-content">
-        <div class="card">
-            <div class="row">
-                <h2>管理者ブラックリスト登録</h2>
-                <p>ASIN/ブランドを登録できます</p>
-
-                <div class="row">
-                    <label class="label">タイプ</label>
-                    <select id="admin-bl-type">
-                        <option value="asin">ASIN</option>
-                        <option value="brand">ブランド</option>
-                    </select>
-                </div>
-
-                <div class="row">
-                    <label class="label">テキスト</label>
-                    <input id="admin-bl-key" type="text" placeholder="ASIN または ブランド名">
-                </div>
-
-                <div class="row">
-                    <label class="label">メモ</label>
-                    <textarea id="admin-bl-reason" rows="2" placeholder="任意"></textarea>
-                </div>
-
-                <div class="row">
-                    <span class="label"></span>
-                    <div class="btn-row">
-                    <button id="admin-bl-submit" class="btn-blue" disabled>登録する</button>
-                    <button id="admin-bl-reset" class="btn-blue" type="button">入力をやりなおす</button>
-                    </div>
-                </div>
-            </div>    
-        </div>
-    </div> <!-- ✅ admin Blacklist タブの閉じタグ -->
-
-<!-- 商品情報タブ -->
-<div id="product_info" class="tab-content" hidden>
-    <div class="card">
-        <div class="row">
-            <!-- ASIN -->
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-                <label for="asinInput" style="min-width:50px;">ASIN：</label>
-                <input id="asinInput" class="input" placeholder="例: B002ZLOPPS" style="width:500px;" />
-                <button id="asinFetchBtn" class="btn-blue">検索</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 商品情報カード -->
-    <div class="grid" style="grid-template-columns: 1fr 1fr; gap:16px;">
-        <div class="card">
-            <!-- 上段：情報と画像を横並び -->
-            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px;">
-                <!-- 画像を左 -->
-                <div style="flex:0 0 auto; text-align:left;">
-                    <img id="imgThumb" alt="" style="max-width:100px; height:auto;">
-                </div>
-
-                <!-- 商品情報（ＪＰ） -->
-                <div style="flex:1;">
-                    <h3 style="margin:8px 0;">日本側（JP）</h3>
-                    <div class="info-row"><span class="label">タイトル：</span><span id="jpTitleLabel" class="val"></span></div>
-                    <div class="info-row"><span class="label">メーカー：</span><span id="jpManufacturerLabel" class="val"></span></div>
-                    <div class="info-row"><span class="label">ブランド：</span><span id="jpBrandLabel" class="val"></span></div>
-                    <div class="info-row"><span class="label">JAN/EAN：</span><span id="jpEanLabel" class="val"></span></div>
-                    <div class="info-row"><span class="label">カート価格（JPY）：</span><span id="jpCartPriceLabel" class="val"></span></div>
-                    <div class="info-row"><span class="label">新品最安（JPY）：</span><span id="jpLowestNewLabel" class="val"></span></div>
-                    <div class="info-row"><span class="label">中古最安（JPY）：</span><span id="jpLowestUsedLabel" class="val"></span></div>
-                    <div class="info-row"><span class="label">参考価格（JPY）：</span><span id="jpPriceLabel" class="val"></span></div>
-                    <div class="info-row"><span class="label">カートセラー：</span><span id="jpCartSellerLabel" class="val">--</span></div>
-
-                    <!-- ★ 外箱サイズ・重量もここにまとめる -->
-                    <div class="info-row" style="margin-top:8px;">
-                    <span class="label">外箱サイズ（cm）：</span>
-                    <span class="val"><span id="pkgLLabel"></span> × <span id="pkgWLabel"></span> × <span id="pkgHLabel"></span></span>
-                    </div>
-                    <div class="info-row"><span class="label">外箱重量（kg）：</span><span id="pkgWeightLabel" class="val"></span></div>
-                </div>
-            </div>
-
-            <!-- カテゴリ・ランキング -->
-            <div id="jp-ranking" style="margin-top:.5rem; background-color:#f9f9f9; padding:8px; border-radius:4px;">
-                <div style="margin:4px 0; font-weight:bold; border-bottom:1px solid #ccc; padding-bottom:4px;">
-                    ランキング情報</div>
-                <div class="info-row"><span class="label">　カテゴリ：</span><span id="jpCategoryLabel" class="val">--</span></div>
-                <div class="info-row"><span class="label">　ランキング：</span><span id="jpRankLabel" class="val">--</span></div>
-            </div>
-
-            <!-- 送料判定用 -->
-            <div id="jp-ranking" style="margin-top:.5rem; background-color:#f9f9f9; padding:8px; border-radius:4px;">
-                <div style="margin:4px 0; font-weight:bold; border-bottom:1px solid #ccc; padding-bottom:4px;">送料判定用 補正値</div> 
-                <div class="info-row"><span class="label">　請求重量(丸め)：</span><span class="val"><span id="ship-billable-rounded">--</span></span></div>
-                <div class="info-row"><span class="label">　容積重量：</span><span class="val"><span id="ship-volumetric">--</span></span></div>
-                <div class="info-row"><span class="label">　実重量(梱包込)：</span><span class="val"><span id="ship-actual">--</span></span></div>
-                <div class="info-row"><span class="label">　補正後寸法(cm)：</span><span class="val"><span id="ship-dims">--</span></span></div>
-            </div>
-        </div>
-        
-        <div class="card">
-            <!-- 商品情報（海外） -->
-            <h3 style="margin:8px 0;">海外側</h3>
-            <div class="info-row"><span class="label">タイトル：</span><span id="fgTitleLabel" class="val"></span></div>
-            <div class="info-row"><span class="label">メーカー：</span><span id="fgManufacturerLabel" class="val"></span></div>
-            <div class="info-row"><span class="label">ブランド：</span><span id="fgBrandLabel" class="val"></span></div>
-            <div class="info-row"><span class="label">EAN/UPC：</span><span id="fgEanLabel" class="val"></span></div>
-            <div class="info-row"><span class="label">カート価格：</span><span id="fgCartPriceLabel" class="val"></span></div>
-            <div class="info-row"><span class="label">新品最安：</span><span id="fgLowestNewLabel" class="val"></span></div>
-            <div class="info-row"><span class="label">中古最安：</span><span id="fgLowestUsedLabel" class="val"></span></div>
-            <div class="info-row"><span class="label">参考価格：</span><span id="fgPriceLabel" class="val"></span></div>
-            <div class="info-row"><span class="label">カートセラー：</span><span id="fgCartSellerLabel" class="val">--</span></div>
-
-            <!-- 外箱サイズ・重量 -->
-            <div class="info-row" style="margin-top:8px;">
-                <span class="label">外箱サイズ（cm）：</span>
-                <span class="val"><span id="fgPkgLLabel"></span> × <span id="fgPkgWLabel"></span> × <span id="fgPkgHLabel"></span></span>
-            </div>
-            <div class="info-row"><span class="label">外箱重量（kg）：</span><span id="fgPkgWeightLabel" class="val"></span></div>
-
-            <!-- カテゴリ・ランキング（海外） -->
-            <div id="fg-ranking" style="margin-top:.5rem; background-color:#f9f9f9; padding:8px; border-radius:4px;">
-                <div style="margin:4px 0; font-weight:bold; border-bottom:1px solid #ccc; padding-bottom:4px;">ランキング情報</div>
-                <div class="info-row"><span class="label">　カテゴリ：</span><span id="fgCategoryLabel" class="val">--</span></div>
-                <div class="info-row"><span class="label">　ランキング：</span><span id="fgRankLabel" class="val">--</span></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-<!-- ✅ その他ツール -->
-<div id="shipping-tools" class="tab-content">
-    <div class="card">
-        <div class="row">
-            <h2>DHL PDF分割（Nページごと）</h2>
-            <p>配布されるPDF容量が大きい為指定ページ数に分割し軽くしてZIPで一括ダウンロードします。</p>
-
-            <!-- 非表示の file input -->
-            <input type="file" id="pdfFileInput" accept=".pdf" style="display:none;" />
-
-            <!-- CSV Import と同じUI -->
-            <div class="file-input-row">
-                <div class="file-input-wrapper">
-                    <input type="text" id="pdfFileName" class="file-input-text" placeholder="PDFファイルを選択してください" readonly />
-                    <button id="pdfSplitBtn" class="btn-blue">分割してZIP取得</button></div>
-                </div>
-            </div>
-
-            <div class="row" style="margin-top:10px;">
-                <label class="label">分割ページ数</label>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <input id="pdfSplitPer" type="number" min="1" value="60" style="width:80px; font-size:20px;">
-                    <span>ページ毎</span>
-                </div>
-            </div>
-
-            <div class="row">
-                <span class="label"></span>
-                <div class="btn-row">
-            
-            </div>
-
-            <div class="row">
-                <span class="label"></span>
-                <small>例：60にすると 1–60, 61–120, … のPDFに分割します。</small>
-            </div>
-        </div>
-
-        <!-- DHL 遠隔地郵便番号 展開 -->
-        <div class="card">
-            <div class="row">
-                <h2>DHL 遠隔地郵便番号 展開</h2>
-                <p>PDFから該当国の郵便番号テキストを貼り付けて、展開し1列に整形します。</p>
-
-                <div class="row">
-                <label class="label">貼り付け</label>
-                <textarea id="dhlInput" rows="8" placeholder="US例）5桁 
-    02584
-    02642 - 02643
-    02650 - 02652
-    02659" style="width:100%;"></textarea>
-                </div>
-
-                <div class="row">
-                <label class="label">数字桁数</label>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <input id="dhlDigitLen" type="number" value="5" min="3" max="10" style="width:80px; font-size:20px;">
-                        <span>桁</span>
-                    </div> 
-                </div> 
-
-                <div class="row">
-                    <span class="label"></span>
-                    <div class="btn-row"> 
-                    <button id="dhlConvertBtn" class="btn-blue">展開する</button>
-                    <button id="dhlDownloadBtn" class="btn-blue">CSVをダウンロード</button>
-                    <button id="dhlClearBtn" class="btn-blue" type="button">クリア</button> 
-                    </div>
-                </div>
-
-                <div class="row">
-                    <label class="label">件数</label>
-                    <span id="dhlCount"></span>
-                </div>
-
-                <div class="row">
-                    <label class="label">結果</label>
-                    <pre id="dhlOutput" style="max-height: 260px; overflow:auto; background:#f7f7f7; padding:8px; margin:0; width:100%;"></pre>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>    
-
-    <!-- ✅ ブランドゲートチェック -->
-    <div id="brand-gate" class="tab-content" hidden>
-    <div class="card">
-        <h2>ブランドゲートチェック（マルチリージョン）</h2>
-        <p>ASINリストを貼り付け、チェックしたリージョンで出品可否（〇：出品可／ △：申請必要／ ✕：禁止）を判定します。</p>
-
-        <div class="grid brand-gate-grid">
-        <div class="card asin-panel">
-            <h3>ASIN入力</h3>
-            <textarea id="bgc-asins" rows="8" placeholder="ASINを1行に1つずつ貼り付け（例）&#10;B000000001&#10;B000000002" style="width:100%;"></textarea>
-            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-            </div>
-            <div class="btn-row">
-            <button id="bgc-run" class="btn-blue">チェック実行</button>
-            <button id="bgc-clear" class="btn-blue">クリア</button>
-            <button id="bgc-sample" class="btn-blue">サンプル入力</button>
-            </div>
-        </div>
-
-        <div class="card result-panel">
-            <div class="btn-row">
-                <button id="bgc-export-csv" class="btn-blue">CSVエクスポート</button>
-            </div>
-
-            <h3>結果</h3>
-            <div id="bgc-summary" style="margin-bottom:6px; font-size:0.95em; opacity:0.9;">未実行</div>
-
-
-            <div style="overflow:auto; max-height:420px;">
-            <!-- このセクションは新規追加：ブランドゲート表のメモ列を非表示 -->
-
-                <table id="bgc-table" class="table" style="width:100%; min-width:720px;">
-                <thead>
-                <tr>
-                    <th style="text-align:left;">ASIN</th>
-                    <th style="text-align:left;">Brand(JP)</th>
-                    <th style="text-align:left;">出品判定</th>
-                    <th>備　　考</th>
-                </tr>
-                </thead>
-                <tbody>
-                <!-- JSで行を追加 -->
-                </tbody>
-            </table>
-            </div>
-
-
-            </div>
-        </div>
-        </div>
-    </div>
-    </div>
  
 
     <!-- ✅ JavaScriptの読み込み -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <!-- <script src="{{ url_for('static', filename='js/listing.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/csv_import.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/brandgate.js') }}"></script> -->
 
-    <!-- ✅ マーケットプレイス切り替え処理 -->
+    <!-- ✅ マーケットプレイス切り替え処理
     <script>
     document.querySelectorAll('input[name="region"]').forEach(radio => {
         radio.addEventListener("change", function () {
@@ -605,7 +189,7 @@
         });
     });
     
-    </script>
+    </script> -->
 
 </body>
 
