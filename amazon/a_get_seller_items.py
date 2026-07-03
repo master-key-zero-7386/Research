@@ -9,6 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import csv
 import time
 import json
+import tempfile
+import shutil
 from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -27,9 +29,6 @@ AMAZON_DOMAIN = {
 
 if get_debug_mode():
     print("✅ a_get_seller_items.py が起動されました！")
-
-# # ✅ seller_id の取得
-# seller_id = sys.argv[1].strip()
 
 def show_deliver_to_confirmation(confirm_wait, brand_filter):
     proceed_flag = {"value": None}
@@ -153,6 +152,9 @@ with open(log_path, "w", encoding="utf-8") as log:
 # Chrome初期化
 options = Options()
 options.add_argument(f"--user-data-dir={profile_path}")
+cache_dir = os.path.join(tempfile.gettempdir(), f"chrome_cache_{country_code}")  
+os.makedirs(cache_dir, exist_ok=True)  
+options.add_argument(f"--disk-cache-dir={cache_dir}")
 
 # ブラウザの起動設定を強化
 options.add_argument("--no-sandbox")
@@ -304,3 +306,13 @@ while current_min < max_price:
     current_min = current_max
 
 driver.quit()
+
+# 終了時にService Worker等の肥大化しやすいゴミだけ削除（Cookie・住所設定は消えない）
+for folder_name in ["Service Worker", "Code Cache", "GPUCache"]:
+    target = os.path.join(profile_path, "Default", folder_name)
+    if os.path.exists(target):
+        shutil.rmtree(target, ignore_errors=True)
+        print(f"🧹 終了処理：削除しました: {target}")
+    else:
+        print(f"⏭ 終了処理：対象なし（スキップ）: {target}")
+
