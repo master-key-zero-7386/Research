@@ -70,12 +70,40 @@ body {
 .tab-content {
     margin-top: 0 !important; 
     padding-top: 0 !important;
-    display: none;
+    display: block;
     background: linear-gradient(to bottom, #e8f0f9, #f2f7fb);
     border: 1px solid #ccc;
     padding: 8px; 
     margin-top: 0 !important; 
     border-radius: 0 0 15px 15px;
+}
+
+/* ✅ リサーチ(左60%)とオプション(右40%)を横並びにする */
+.tool-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.tool-layout #research {
+    flex: 0 0 60%;
+    max-width: 60%;
+}
+
+.tool-layout #option {
+    flex: 0 0 40%;
+    max-width: 40%;
+}
+
+/* 画面が狭い場合は縦積みに戻す（スマホ等での崩れ防止） */
+@media (max-width: 900px) {
+    .tool-layout {
+        flex-direction: column;
+    }
+    .tool-layout #research,
+    .tool-layout #option {
+        max-width: 100%;
+    }
 }
 
 .tab-content.active {

@@ -25,13 +25,28 @@ import sqlite3
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-from .a_02extract_asin_list import run_asin_extraction
 
 bp = Blueprint("amazon", __name__)
 amazon_bp = bp
 
 TRASH_DIR = os.path.join(BASE_DIR, "tool_trash") 
 os.makedirs(TRASH_DIR, exist_ok=True)
+
+# ✅ ごみ箱に移動したファイルの「元の場所」を記録する台帳
+TRASH_MANIFEST_PATH = os.path.join(TRASH_DIR, "_manifest.json")
+
+def _load_trash_manifest():
+    if os.path.exists(TRASH_MANIFEST_PATH):
+        try:
+            with open(TRASH_MANIFEST_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def _save_trash_manifest(manifest):
+    with open(TRASH_MANIFEST_PATH, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
 
 amazon_bp = Blueprint("amazon", __name__, url_prefix="/amazon", template_folder="../templates")
 from flask import request, jsonify
@@ -471,35 +486,35 @@ def load_config():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@amazon_bp.route("/extract_asin_from_csv", methods=["POST"])
-def extract_asin_from_csv():
-    try:
-        files = request.files.getlist("files")
-        region = request.form.get("region", "au")
+# @amazon_bp.route("/extract_asin_from_csv", methods=["POST"])
+# def extract_asin_from_csv():
+#     try:
+#         files = request.files.getlist("files")
+#         region = request.form.get("region", "au")
 
-        save_paths = []
-        for file in files:
-            filename = secure_filename(file.filename)
-            save_path = os.path.join(UPLOAD_DIR, filename)
-            file.save(save_path)
-            save_paths.append(save_path)
+#         save_paths = []
+#         for file in files:
+#             filename = secure_filename(file.filename)
+#             save_path = os.path.join(UPLOAD_DIR, filename)
+#             file.save(save_path)
+#             save_paths.append(save_path)
 
-        from .a_02extract_asin_list import run_asin_extraction
-        filename, output_path = run_asin_extraction(save_paths, region, DATA_DIR)
+#         from .a_02extract_asin_list import run_asin_extraction
+#         filename, output_path = run_asin_extraction(save_paths, region, DATA_DIR)
 
-        # ✅ ダウンロード用URLを返すよう修正
-        download_url = url_for("amazon.download_file",
-                               region=region.lower(),
-                               filename=filename)
+#         # ✅ ダウンロード用URLを返すよう修正
+#         download_url = url_for("amazon.download_file",
+#                                region=region.lower(),
+#                                filename=filename)
 
-        return jsonify({
-            "status": "success",
-            "message": "ASIN抽出完了",
-            "download_url": download_url  # この行を修正
-        })
+#         return jsonify({
+#             "status": "success",
+#             "message": "ASIN抽出完了",
+#             "download_url": download_url  # この行を修正
+#         })
 
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
+#     except Exception as e:
+#         return jsonify({"status": "error", "message": str(e)})
 
 @amazon_bp.route("/extract_asin_list", methods=["POST"])
 def extract_asin_list_route():
@@ -547,8 +562,8 @@ def extract_asin_list_route():
 
         # ✅ ファイル名：{timestamp}_{REGION}_ASIN_list.csv
         now_jst = datetime.utcnow() + timedelta(hours=9)
-        timestamp = now_jst.strftime("%Y%m%d_%H%M")
-        filename = f"{region.upper()}_{timestamp}_ASIN_list.csv"  
+        timestamp = now_jst.strftime("%Y%m%d_%H%M%S")
+        filename = f"{region.upper()}_{timestamp}_ASIN_list.csv" 
         output_path = os.path.join(region_dir, filename)
 
         # ✅ CSV 保存
@@ -588,6 +603,8 @@ def move_to_trash():
     trash_dir = TRASH_DIR
     os.makedirs(trash_dir, exist_ok=True)
 
+    manifest = _load_trash_manifest()
+
     moved_files = []
     for file_name in file_names:
         clean_name = os.path.basename(file_name)
@@ -597,11 +614,14 @@ def move_to_trash():
                 dest_path = os.path.join(trash_dir, clean_name)
                 shutil.move(src_path, dest_path)
                 moved_files.append(clean_name)
+                # ✅ 元の場所（region_dir）を台帳に記録
+                manifest[clean_name] = region_dir
             except Exception as e:
                 pass
         else:
             pass
 
+    _save_trash_manifest(manifest)
     return jsonify({"status": "success", "moved": moved_files})
 
 # ツール専用ごみ箱内完全削除
@@ -612,6 +632,9 @@ def trash_info():
     total = 0
     if os.path.isdir(TRASH_DIR):
         for name in os.listdir(TRASH_DIR):
+            # ✅ 台帳ファイル自体は「ごみ箱の中身」として表示・削除できないよう除外
+            if name == os.path.basename(TRASH_MANIFEST_PATH):
+                continue
             path = os.path.join(TRASH_DIR, name)
             if os.path.isfile(path):
                 size = os.path.getsize(path)
@@ -630,6 +653,7 @@ def trash_delete():
     data = request.get_json(force=True, silent=True) or {}
     names = data.get("files", [])
     deleted, missing, errors = [], [], []
+    manifest = _load_trash_manifest()
 
     for name in names:
         path = os.path.join(TRASH_DIR, os.path.basename(name))
@@ -637,12 +661,47 @@ def trash_delete():
             if os.path.exists(path):
                 os.remove(path)
                 deleted.append(name)
+                # ✅ 完全削除したファイルは台帳からも消す
+                manifest.pop(os.path.basename(name), None)
             else:
                 missing.append(name)
         except Exception as e:
             errors.append({"name": name, "error": str(e)})
 
+    _save_trash_manifest(manifest)
     return jsonify({"deleted": deleted, "missing": missing, "errors": errors})
+
+
+@amazon_bp.route("/restore_from_trash", methods=["POST"])
+def restore_from_trash():
+    data = request.get_json(force=True, silent=True) or {}
+    names = data.get("files", [])
+    manifest = _load_trash_manifest()
+
+    restored, missing, errors = [], [], []
+    for name in names:
+        clean_name = os.path.basename(name)
+        src_path = os.path.join(TRASH_DIR, clean_name)
+        origin_dir = manifest.get(clean_name)
+
+        if not os.path.exists(src_path):
+            missing.append(clean_name)
+            continue
+        if not origin_dir:
+            errors.append({"name": clean_name, "error": "元の場所が記録されていません"})
+            continue
+
+        try:
+            os.makedirs(origin_dir, exist_ok=True)
+            dest_path = os.path.join(origin_dir, clean_name)
+            shutil.move(src_path, dest_path)
+            restored.append(clean_name)
+            manifest.pop(clean_name, None)
+        except Exception as e:
+            errors.append({"name": clean_name, "error": str(e)})
+
+    _save_trash_manifest(manifest)
+    return jsonify({"restored": restored, "missing": missing, "errors": errors})
 
 @amazon_bp.route("/download/<region>/<filename>")
 def download_file(region, filename):
@@ -671,6 +730,7 @@ def get_asin_file_list(region):
             return jsonify({"status": "error", "message": "指定のフォルダが存在しません。"})
 
         # フォルダ内の .csv ファイルをリストアップ（降順）
+        # ※ 統合済み(_ASIN_list.csv)ファイルは、二重統合でごみ箱送りになるのを防ぐため一覧から除外
         file_list = sorted(
             [f for f in os.listdir(folder) if f.endswith(".csv")],
             reverse=True

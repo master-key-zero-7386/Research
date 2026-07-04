@@ -34,13 +34,15 @@
                 </select>
             </div>            
 
-            <button class="tab active" data-tab="research">リサーチ</button>
-            <button class="tab" data-tab="option">オプション</button>
+            <!-- ✅ 1画面構成にしたためタブボタンは非表示（内部処理には影響なし） -->
+            <button class="tab active" data-tab="research" style="display:none;">リサーチ</button>
+            <button class="tab" data-tab="option" style="display:none;">オプション</button>
 
         </div>
     </div>
         
-
+    <!-- ✅ ここから左右分割レイアウト -->
+    <div class="tool-layout">
 
     <!-- ✅ リサーチ -->
     <div id="research" class="tab-content {% if tab == 'research' %}active{% endif %}">
@@ -166,8 +168,9 @@
             <!-- マーケットプレイス選択 -->
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                 <div class="btn-row">
-                    <button onclick="loadFileList()" class="btn-blue" style="margin-left:20px;">読　込</button>
+                    <button onclick="loadAsinFileList(document.getElementById('globalRegion').value)" class="btn-blue" style="margin-left:20px;">読　込</button>
                     <button id="asinExtractBtn" class="btn-blue" style="margin-left:20px;">ASIN抽出</button>
+                    <button id="asinDeleteBtn" class="btn-blue" style="margin-left:10px; background-color:#c0392b;" disabled>選択したファイルを削除</button>
                 </div>
             </div>
 
@@ -175,6 +178,7 @@
             <div id="asin-file-list"></div>
         </div>    <!-- ASIN抽出用ファイル一覧ここまで -->
     </div> <!-- ✅ option タブの閉じタグ -->    
+    </div> <!-- ✅ tool-layout 閉じタグ -->
  
 
     <!-- ✅ JavaScriptの読み込み -->

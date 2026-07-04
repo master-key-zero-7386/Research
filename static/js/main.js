@@ -538,6 +538,34 @@ window.addEventListener("DOMContentLoaded", () => {
         })
     }
 
+    // ✅ 選択したファイルを専用ごみ箱へ移動（ダウンロード後の削除用）
+        document.addEventListener("click", function (e) {
+            if (e.target && e.target.id === "asinDeleteBtn") {
+                const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase();
+                const container = document.getElementById("asin-file-list");
+                const checked = Array.from(container.querySelectorAll('input[type="checkbox"][value]:checked'))
+                    .map(cb => cb.value);
+
+                if (checked.length === 0) return;
+
+                if (!confirm(`選択した${checked.length}件を専用ごみ箱に移動します。よろしいですか？`)) return;
+
+                fetch("/amazon/move_to_trash", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ region: region, files: checked })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    loadAsinFileList(region);
+                })
+                .catch(err => {
+                    console.error("❌ 削除失敗:", err);
+                    alert("削除に失敗しました。");
+                });
+            }
+        });
+
     function loadAsinFileList(region) {
         fetch(`/amazon/get_asin_file_list/${region}`)
             .then(r => r.json())
@@ -569,9 +597,11 @@ window.addEventListener("DOMContentLoaded", () => {
                 });
 
                 // 状態更新（選択数だけで決定）
+                const asinDeleteBtn = document.getElementById("asinDeleteBtn");
                 const updateExtractBtnState = () => {
                     const anyChecked = container.querySelectorAll('input[type="checkbox"][value]:checked').length > 0;
                     asinExtractBtn.disabled = !anyChecked;
+                    if (asinDeleteBtn) asinDeleteBtn.disabled = !anyChecked;
                 };
 
                 // すべて選択
@@ -780,12 +810,22 @@ window.addEventListener("DOMContentLoaded", () => {
     delBtn.style.borderRadius = "8px";
     delBtn.style.cursor = "pointer";
 
+    const restoreBtn = document.createElement("button");
+    restoreBtn.textContent = "元に戻す";
+    restoreBtn.style.background = "#2563eb";
+    restoreBtn.style.color = "#fff";
+    restoreBtn.style.border = "none";
+    restoreBtn.style.padding = "8px 14px";
+    restoreBtn.style.borderRadius = "8px";
+    restoreBtn.style.cursor = "pointer";    
+
     const closeBtn = document.createElement("button");
     closeBtn.textContent = "閉じる";
     closeBtn.style.padding = "8px 14px";
     closeBtn.style.borderRadius = "8px";
     closeBtn.addEventListener("click", () => overlay.remove());
 
+    actions.appendChild(restoreBtn);
     actions.appendChild(delBtn);
     actions.appendChild(closeBtn);
 
@@ -798,12 +838,12 @@ window.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(overlay);
 
     // 一覧読み込み
-    loadTrashList({ info, list, master, delBtn });
+    loadTrashList({ info, list, master, delBtn, restoreBtn });
     }
 
     // 専用ごみ箱の一覧を取得して描画
     function loadTrashList(ctx) {
-    const { info, list, master, delBtn } = ctx;
+    const { info, list, master, delBtn, restoreBtn } = ctx;
 
     fetch("/amazon/trash_info")
         .then((r) => r.json())
@@ -817,14 +857,16 @@ window.addEventListener("DOMContentLoaded", () => {
         master.indeterminate = false;
 
         if (!data.files || !data.files.length) {
-            const empty = document.createElement("div");
-            empty.textContent = "ごみ箱は空です。";
-            empty.style.padding = "12px";
-            list.appendChild(empty);
-            delBtn.disabled = true;
-            return;
-        }
-        delBtn.disabled = false;
+                    const empty = document.createElement("div");
+                    empty.textContent = "ごみ箱は空です。";
+                    empty.style.padding = "12px";
+                    list.appendChild(empty);
+                    delBtn.disabled = true;
+                    restoreBtn.disabled = true;
+                    return;
+                }
+                delBtn.disabled = false;
+                restoreBtn.disabled = false;
 
         // 各行
         data.files.forEach((f) => {
@@ -909,6 +951,38 @@ window.addEventListener("DOMContentLoaded", () => {
             delBtn.disabled = false;
             }
         };
+
+        // 元に戻すボタン
+        restoreBtn.onclick = async () => {
+            const selected = Array.from(list.querySelectorAll(".trash-cb:checked")).map((x) => x.value);
+            if (!selected.length) {
+                alert("元に戻すファイルを選択してください。");
+                return;
+            }
+            const ok = confirm(`選択した ${selected.length} 件を元の場所に戻します。よろしいですか？`);
+            if (!ok) return;
+
+            restoreBtn.disabled = true;
+            try {
+                const resp = await fetch("/amazon/restore_from_trash", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ files: selected }),
+                });
+                const result = await resp.json();
+                if (result.errors && result.errors.length) {
+                    alert("一部のファイルを復元できませんでした。詳しくはコンソールを確認してください。");
+                    console.error("復元エラー:", result.errors);
+                }
+                loadTrashList(ctx);
+            } catch (e) {
+                alert("復元に失敗しました。");
+                console.error(e);
+            } finally {
+                restoreBtn.disabled = false;
+            }
+        };
+
         })
         .catch(() => {
         info.textContent = "ごみ箱情報の取得に失敗しました。";
