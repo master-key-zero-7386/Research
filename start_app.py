@@ -30,7 +30,7 @@ def main():
             print("エラー: venvが見つかりません。先にセットアップ（setup）を実行してください。")
             sys.exit(1)
 
-    process = subprocess.Popen([python_exe, APP_PATH])
+    process = subprocess.Popen([python_exe, APP_PATH], cwd=BASE_DIR)
     time.sleep(2)
     webbrowser.open(URL)
     process.wait()

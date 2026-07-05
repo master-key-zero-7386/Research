@@ -17,7 +17,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import tkinter as tk
 from utils.config_loader import cfg, get_debug_mode
 from amazon.brand_master import get_brand_id 
 
@@ -30,50 +29,53 @@ AMAZON_DOMAIN = {
 if get_debug_mode():
     print("✅ a_get_seller_items.py が起動されました！")
 
-def show_deliver_to_confirmation(confirm_wait, brand_filter):
-    proceed_flag = {"value": None}
+def show_deliver_to_confirmation(driver, confirm_wait, brand_filter):
+    # Amazonの画面の中に、確認用の帯（バナー）を表示する
+    wait_note = f"{confirm_wait}秒後に自動で続行します" if confirm_wait > 0 else "確認できたら「OK」を押してください"
 
-    def on_ok():
-        proceed_flag["value"] = True
-        win.destroy()
+    banner_script = """
+    var banner = document.createElement('div');
+    banner.id = 'rt_confirm_banner';
+    banner.style.position = 'fixed';
+    banner.style.bottom = '0';
+    banner.style.left = '0';
+    banner.style.width = '100%%';
+    banner.style.zIndex = '999999';
+    banner.style.background = '#ffcc00';
+    banner.style.color = '#000';
+    banner.style.fontSize = '18px';
+    banner.style.padding = '16px';
+    banner.style.textAlign = 'center';
+    banner.style.boxShadow = '0 -2px 8px rgba(0,0,0,0.3)';
+    banner.innerHTML = '配送先(Deliver to)が販売予定の国になっているか確認してください。<br>%s' +
+        '<br><button id="rt_ok_btn" style="margin-top:8px;padding:8px 24px;font-size:16px;">OK</button>';
+    document.body.appendChild(banner);
 
-    def on_cancel():
-        proceed_flag["value"] = False
-        win.destroy()
-        sys.exit(20)
+    document.getElementById('rt_ok_btn').onclick = function() {
+        window.__rt_confirmed = true;
+        banner.remove();
+    };
+    window.__rt_confirmed = false;
+    """ % (wait_note)
 
-    def auto_ok():
-        if proceed_flag["value"] is None:
-            proceed_flag["value"] = True
-            win.destroy()
+    driver.execute_script(banner_script)
 
-    win = tk.Tk()
-    win.title("配送先確認")
-    win.geometry("450x180")
-    win.eval('tk::PlaceWindow . center')
+    # OKボタンが押されるか、指定秒数が経過するまで待つ
+    waited = 0
+    while True:
+        confirmed = driver.execute_script("return window.__rt_confirmed;")
+        if confirmed:
+            break
+        if confirm_wait > 0 and waited >= confirm_wait:
+            break
+        time.sleep(0.5)
+        waited += 0.5
 
-    label_text = (
-        "以下の内容を確認してください。\n\n"
-        "Deliver to が販売予定の国に設定されている\n"
-        # f"② ブランド「{brand_filter}」に ✓ が付いている"
-    )
-
-    if confirm_wait > 0:
-        label_text += f"\n\n（{confirm_wait}秒後に自動で進行）"
-    else:
-        label_text += "\n\n（手動確認モード：OKボタンでスタート）"
-
-    tk.Label(win, text=label_text, justify="left", pady=10).pack()
-
-    frame = tk.Frame(win)
-    frame.pack(pady=10)
-    tk.Button(frame, text="OK", width=10, command=on_ok).pack(side="left", padx=10)
-    tk.Button(frame, text="キャンセル", width=10, command=on_cancel).pack(side="left", padx=10)
-
-    if confirm_wait > 0:
-        win.after(confirm_wait * 1000, auto_ok)
-
-    win.mainloop()
+    # 自動続行の場合、バナーが残っていたら消しておく
+    driver.execute_script("""
+        var b = document.getElementById('rt_confirm_banner');
+        if (b) b.remove();
+    """)
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")) 
@@ -213,7 +215,7 @@ while current_min < max_price:
     time.sleep(2)
     
     if current_min == min_price:
-        show_deliver_to_confirmation(confirm_wait, brand_filter)
+        show_deliver_to_confirmation(driver, confirm_wait, brand_filter)
 
     items = []
     page = 1
