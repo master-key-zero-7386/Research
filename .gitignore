@@ -31,6 +31,10 @@ env/
 *_env/
 web_v2_env/
 dev_v2_env/
+python_embed/
+
+
+tool_trash/
 
 # DB
 *.db
@@ -59,7 +63,9 @@ Thumbs.db
 # BAT
 *.bat
 !setup_venv.bat
+!setup.bat
 !update_requirements.bat
+!start.bat
 
 # Environment
 .env
