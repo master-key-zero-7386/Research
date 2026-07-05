@@ -151,7 +151,8 @@ window.addEventListener("DOMContentLoaded", () => {
         const maxPrice = document.getElementById("max_price").value.trim();
         const stepPrice = document.getElementById("step_price").value.trim();
         const outputFolder = document.getElementById("output_folder").value.trim();
-        const confirmWait = document.getElementById("confirm_wait").value.trim();
+        // 「自動開始時間」は廃止（常に手動確認バナーを使うため
+        // const confirmWait = document.getElementById("confirm_wait").value.trim();
 
         // ✅ config 保存（修正なし）
         fetch("/amazon/save_config", {
@@ -160,7 +161,7 @@ window.addEventListener("DOMContentLoaded", () => {
             body: JSON.stringify({
                 region, seller_id: sellerId, brand, min_price: minPrice,
                 max_price: maxPrice, step_price: stepPrice,
-                output_folder: outputFolder, confirm_wait: confirmWait, remarks
+                output_folder: outputFolder, remarks
             })
         })
         .then(response => {
@@ -181,7 +182,7 @@ window.addEventListener("DOMContentLoaded", () => {
                     brand, min_price: minPrice,
                     max_price: maxPrice, step_price: stepPrice,
                     output_folder: outputFolder,
-                    confirm_wait: confirmWait, remarks
+                    remarks
                 })
             });
         })

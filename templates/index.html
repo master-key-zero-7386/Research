@@ -135,18 +135,6 @@
                     <input id="step_price" name="step_price" class="input" placeholder="例: 10.0" value="{{ last_used.step_price or '' }}">
                 </div>
 
-                <!-- 自動開始時間 -->
-                <div class="row">
-                    <label class="label" for="confirm_wait">自動開始 時間：</label>
-                    <select id="confirm_wait" name="confirm_wait" class="select">
-                    <option value="手動確認" {% if last_used.confirm_wait == "手動確認" %}selected{% endif %}>手動確認</option>
-                    <option value="5"  {% if last_used.confirm_wait == "5" %}selected{% endif %}>5秒</option>
-                    <option value="10" {% if last_used.confirm_wait == "10" %}selected{% endif %}>10秒</option>
-                    <option value="15" {% if last_used.confirm_wait == "15" %}selected{% endif %}>15秒</option>
-                    <option value="20" {% if last_used.confirm_wait == "20" %}selected{% endif %}>20秒</option>
-                    </select>
-                </div>
-
                 <!-- 実行ボタン -->
                 <div class="row">
                     <label class="label"></label>

@@ -358,7 +358,7 @@ def process():
     min_price = data.get("min_price")
     max_price = data.get("max_price")
     step_price = data.get("step_price")
-    confirm_wait = data.get("confirm_wait")
+    confirm_wait = "手動確認"  # 自動開始時間の選択欄を廃止したため固定値に変更
     output_folder = data.get("output_folder")
     remarks = data.get("remarks")
 

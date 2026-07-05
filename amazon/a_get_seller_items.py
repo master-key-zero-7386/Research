@@ -48,34 +48,44 @@ def show_deliver_to_confirmation(driver, confirm_wait, brand_filter):
     banner.style.textAlign = 'center';
     banner.style.boxShadow = '0 -2px 8px rgba(0,0,0,0.3)';
     banner.innerHTML = '配送先(Deliver to)が販売予定の国になっているか確認してください。<br>%s' +
-        '<br><button id="rt_ok_btn" style="margin-top:8px;padding:8px 24px;font-size:16px;">OK</button>';
+        '<br><button id="rt_ok_btn" style="margin-top:8px;padding:8px 24px;font-size:16px;">OK</button>' +
+        '<button id="rt_cancel_btn" style="margin-top:8px;margin-left:12px;padding:8px 24px;font-size:16px;">キャンセル</button>';
     document.body.appendChild(banner);
 
     document.getElementById('rt_ok_btn').onclick = function() {
         window.__rt_confirmed = true;
         banner.remove();
     };
+    document.getElementById('rt_cancel_btn').onclick = function() {
+        window.__rt_cancelled = true;
+        banner.remove();
+    };
     window.__rt_confirmed = false;
+    window.__rt_cancelled = false;
     """ % (wait_note)
 
     driver.execute_script(banner_script)
 
-    # OKボタンが押されるか、指定秒数が経過するまで待つ
+    # OKボタンが押されるか、キャンセルが押されるか、指定秒数が経過するまで待つ
     waited = 0
     while True:
         confirmed = driver.execute_script("return window.__rt_confirmed;")
-        if confirmed:
+        cancelled = driver.execute_script("return window.__rt_cancelled;")
+        if confirmed or cancelled:
             break
         if confirm_wait > 0 and waited >= confirm_wait:
             break
         time.sleep(0.5)
         waited += 0.5
 
-    # 自動続行の場合、バナーが残っていたら消しておく
+    # バナーが残っていたら消しておく
     driver.execute_script("""
         var b = document.getElementById('rt_confirm_banner');
         if (b) b.remove();
     """)
+
+    # ✅ キャンセルが押されたかどうかを呼び出し元に伝える（True＝続行、False＝中止）
+    return not cancelled
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")) 
@@ -215,7 +225,12 @@ while current_min < max_price:
     time.sleep(2)
     
     if current_min == min_price:
-        show_deliver_to_confirmation(driver, confirm_wait, brand_filter)
+        proceed = show_deliver_to_confirmation(driver, confirm_wait, brand_filter)
+        if not proceed:
+            if get_debug_mode():
+                print("❌ ユーザーがキャンセルを押したため処理を中止します")
+            driver.quit()
+            sys.exit(0)
 
     items = []
     page = 1
