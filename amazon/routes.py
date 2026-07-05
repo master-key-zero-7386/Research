@@ -486,36 +486,6 @@ def load_config():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# @amazon_bp.route("/extract_asin_from_csv", methods=["POST"])
-# def extract_asin_from_csv():
-#     try:
-#         files = request.files.getlist("files")
-#         region = request.form.get("region", "au")
-
-#         save_paths = []
-#         for file in files:
-#             filename = secure_filename(file.filename)
-#             save_path = os.path.join(UPLOAD_DIR, filename)
-#             file.save(save_path)
-#             save_paths.append(save_path)
-
-#         from .a_02extract_asin_list import run_asin_extraction
-#         filename, output_path = run_asin_extraction(save_paths, region, DATA_DIR)
-
-#         # ✅ ダウンロード用URLを返すよう修正
-#         download_url = url_for("amazon.download_file",
-#                                region=region.lower(),
-#                                filename=filename)
-
-#         return jsonify({
-#             "status": "success",
-#             "message": "ASIN抽出完了",
-#             "download_url": download_url  # この行を修正
-#         })
-
-#     except Exception as e:
-#         return jsonify({"status": "error", "message": str(e)})
-
 @amazon_bp.route("/extract_asin_list", methods=["POST"])
 def extract_asin_list_route():
     try:
