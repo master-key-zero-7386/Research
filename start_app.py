@@ -11,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VENV_DIR = os.path.join(BASE_DIR, "venv")
 APP_PATH = os.path.join(BASE_DIR, "app.py")
 
-URL = "http://127.0.0.1:5002"
+URL = "http://127.0.0.1:5002/amazon/"
 
 PYTHON_EMBED_DIR = os.path.join(BASE_DIR, "python_embed")
 

@@ -762,7 +762,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // ヘッダ
     const h = document.createElement("h2");
-    h.textContent = "専用ごみ箱（C:\\Research_Tool_Trash）";
+    h.textContent = "専用ごみ箱";
     h.style.fontSize = "18px";
     h.style.margin = "0 0 12px";
 

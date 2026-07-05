@@ -1,5 +1,6 @@
 import sys
 import os
+import secrets
 from amazon.routes import amazon_bp
 from flask import Flask, render_template, jsonify, request 
 import json
@@ -8,15 +9,6 @@ from utils.config_loader import cfg, get_debug_mode
 import amazon.db_migrate as db_migrate  
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config", "config.json") 
-
-# ✅ コマンド引数から実行モードを判定（デフォルトは "dev"）
-mode = sys.argv[1] if len(sys.argv) > 1 else "dev"
-
-# ✅ configファイルの切り替え
-if mode == "server":
-    CONFIG_PATH = os.path.join("config", "config_server.json")
-else:
-    CONFIG_PATH = os.path.join("config", "config.json")
 
 def _load_config(): 
     try: 
@@ -35,13 +27,12 @@ def _save_config(cfg: dict):
 
 # ✅ Flaskアプリ初期化
 app = Flask(__name__)
-app.debug = True 
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 
 sys.path.append(os.path.dirname(__file__))  
 
-app.secret_key = 'your-secret-key'  
+app.secret_key = secrets.token_hex(16)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # Blueprint 登録
@@ -56,5 +47,4 @@ def index():
 
 if __name__ == "__main__":
     db_migrate.main()
-    app.run(host="0.0.0.0", port=5002, debug=True)
-
+    app.run(host="127.0.0.1", port=5002, debug=False)
