@@ -129,8 +129,8 @@ def save_seller_info():
         else:
             # 新規追加（last_used の初期値は 0）
             cursor.execute(
-                "INSERT INTO seller_list (country_code, seller_id, shop_name, hidden, remarks, review_lifetime, last_used) VALUES (?, ?, ?, ?, ?, ?, 0)",
-                (region.upper(), seller_id, shop_name, hidden, remarks, 0)
+                "INSERT INTO seller_list (country_code, seller_id, shop_name, hidden, remarks, last_used) VALUES (?, ?, ?, ?, ?, 0)",
+                (region.upper(), seller_id, shop_name, hidden, remarks)
             )
 
         conn.commit()
