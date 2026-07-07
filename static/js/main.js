@@ -284,9 +284,36 @@ window.addEventListener("DOMContentLoaded", () => {
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
                     body: formData.toString(),
                 })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        // ✅ 保存直後にプルダウンを更新し、保存したセラーを選択状態にする
+                        // （loadSellerListだとlast_usedの情報で入力欄が上書きされてしまうため使わない）
+                        refreshSellerDropdown(region).then(() => {
+                            const dropdown = document.getElementById("seller_id");
+                            if (dropdown) dropdown.value = usedSellerId;
+                            updateStoreButtonState();
+                        });
+                    } else {
+                        alert(data.message || "保存に失敗しました。");
+                    }
+                })
                 .catch(error => {
                     alert("通信エラー: " + error);
                 });
+            });
+        }
+
+        // クリア
+        const clearBtn = document.getElementById("clearSellerBtn");
+        if (clearBtn) {
+            clearBtn.addEventListener("click", function () {
+                document.getElementById("seller_id").value = "";
+                document.getElementById("manual_seller_id").value = "";
+                document.getElementById("shop_name").value = "";
+                document.getElementById("remarks").value = "";
+                document.getElementById("hidden").checked = false;
+                updateStoreButtonState();
             });
         }
 
@@ -597,11 +624,11 @@ window.addEventListener("DOMContentLoaded", () => {
             .catch(err => console.error("❌ ファイル一覧取得失敗:", err));
     }
 
-    // ✅ セラーID抽出処理：選択したregionに応じてセラーID一覧を取得・プルダウン更新
-    function loadSellerList(region) {
+    // ✅ セラーID一覧を取得してプルダウンの選択肢だけを更新（入力欄には触れない）
+    function refreshSellerDropdown(region) {
         const includeHidden = document.getElementById("toggleHiddenSeller")?.checked ? 1 : 0;
 
-        fetch(`/amazon/get_seller_list?region=${region}&include_hidden=${includeHidden}`)
+        return fetch(`/amazon/get_seller_list?region=${region}&include_hidden=${includeHidden}`)
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById("seller_id");
@@ -611,24 +638,28 @@ window.addEventListener("DOMContentLoaded", () => {
                 const allOption = document.createElement("option");
                 allOption.value = "";
                 allOption.text = "セラー選択なし（全体検索）";
-                select.appendChild(allOption);                
+                select.appendChild(allOption);
 
                 const sellers = data.seller_list || [];
                 sellers.forEach(seller => {
                     const option = document.createElement("option");
                     option.value = seller.seller_id;
                     const mark = seller.hidden ? "🚫 " : "";
-                    option.text  = seller.seller_name 
+                    option.text  = seller.seller_name
                                 ? `${mark}${seller.seller_name} (${seller.seller_id})`
                                 : `${mark}${seller.seller_id}`;
                     select.appendChild(option);
                 });
-
-                // ✅ リスト更新後に last_used を反映
-                get_seller_info(region);
-                // }                
             })
             .catch(err => console.error("❌ get_seller_list error:", err));
+    }
+
+    // ✅ セラーID抽出処理：選択したregionに応じてセラーID一覧を取得・プルダウン更新
+    function loadSellerList(region) {
+        refreshSellerDropdown(region).then(() => {
+            // ✅ リスト更新後に last_used を反映
+            get_seller_info(region);
+        });
     }
 
     // ✅ ファイル一覧を読み込んで表示する関数（チェックボックス付き）
