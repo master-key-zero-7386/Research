@@ -204,34 +204,6 @@ window.addEventListener("DOMContentLoaded", () => {
             alert("実行中にエラーが発生しました");
         });
     }
-
-    // ✅ 初期化・イベントバインド
-    fetch("https://ipinfo.io/json") 
-        .then(res => res.json())
-        .then(data => {
-            const ipBox = document.getElementById("ip-location");
-            const logBox = document.getElementById("log-box");
-
-            if (ipBox && data.city && data.country) {
-                const locationText = `Location: ${data.city}, ${data.country}`;
-                ipBox.textContent = locationText;
-
-                // ✅ 最終ログを Flask から取得して結合表示
-                fetch("/amazon/get_latest_log")
-                    .then(res => res.text())
-                    .then(latestLog => {
-                        if (logBox) {
-                            logBox.textContent = `${latestLog}（${locationText}）`;
-                        }
-                    })
-                    .catch(err => {
-                        console.warn("ログ取得エラー:", err);
-                    });
-            }
-        })
-        .catch(err => {
-            console.warn("IP取得エラー:", err);
-        });
         
     const runBtn = document.getElementById("runBtn");
     if (runBtn) {
