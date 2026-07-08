@@ -306,6 +306,7 @@ def save_last_used_config(form_data):
             "region": region,
             "seller_id": form_data.get("seller_id", ""),
             "brand": form_data.get("brand", ""),
+            "category": form_data.get("category", ""),
             "min_price": form_data.get("min_price", ""),
             "max_price": form_data.get("max_price", ""),
             "step_price": form_data.get("step_price", ""),
@@ -355,6 +356,7 @@ def process():
     manual_seller_id = data.get("manual_seller_id", "").strip()
     seller_id = data.get("seller_id")
     brand = data.get("brand")
+    category = data.get("category")
     min_price = data.get("min_price")
     max_price = data.get("max_price")
     step_price = data.get("step_price")
@@ -408,7 +410,8 @@ def process():
             output_folder,  # args[8]
             region,         # args[9]
             remarks,        # args[10]
-            shop_name       # args[11]
+            shop_name,      # args[11]
+            category        # args[12]
         ]
         # subprocess.Popen(["python", script_path] + args)
         subprocess.Popen([sys.executable, script_path] + args)
@@ -445,6 +448,7 @@ def save_config():
             "region": region,
             "seller_id": data.get("seller_id", ""),
             "brand": data.get("brand", ""),
+            "category": data.get("category", ""),
             "min_price": data.get("min_price", ""),
             "max_price": data.get("max_price", ""),
             "step_price": data.get("step_price", ""),

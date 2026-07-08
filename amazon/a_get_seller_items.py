@@ -18,7 +18,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.config_loader import cfg, get_debug_mode
-from amazon.brand_master import get_brand_id 
+from amazon.brand_master import get_brand_id
+from amazon.category_master import get_category_node_id
 
 AMAZON_DOMAIN = {
     "au": "www.amazon.com.au",
@@ -128,6 +129,7 @@ _ignored_output_folder = args[8].strip()
 country_code = args[9].strip().lower()
 remarks = args[10].strip() if len(args) > 10 else "未入力"
 shop_name = args[11].strip() if len(args) > 11 else "Unknown"
+category_filter = args[12].strip() if len(args) > 12 else ""
 
 amazon_domain = AMAZON_DOMAIN[country_code]
 
@@ -193,6 +195,11 @@ if brand_filter:
 else:
     brand_id = None
 
+if category_filter:
+    category_node_id = get_category_node_id(driver, country_code, category_filter)
+else:
+    category_node_id = None
+
 # ステップ分割処理
 current_min = min_price
 while current_min < max_price:
@@ -203,7 +210,10 @@ while current_min < max_price:
     if brand_id:
         rh.append(f"p_123:{brand_id}")
 
-    price_filter = "&rh=" + ",".join(rh)     
+    if category_node_id:
+        rh.append(f"n:{category_node_id}")
+
+    price_filter = "&rh=" + ",".join(rh)
     
     # ✅ seller_id に "すべて" が含まれる場合は me= を含めない
     me_param = f"me={seller_id}&" if seller_id and "すべて" not in seller_id else ""
@@ -306,7 +316,7 @@ while current_min < max_price:
 
     os.makedirs(output_folder, exist_ok=True)
     price_range = f"{int(current_min)}-{int(current_max)}"
-    category_part = category_slug if category_slug else "all"
+    category_part = category_filter.lower() if category_filter else (category_slug if category_slug else "all")
     brand_part = brand_filter.lower() if brand_filter else "all"
 
     now_jst = datetime.utcnow() + timedelta(hours=9)  # ✅ タイムスタンプ生成 # この行は新規追加

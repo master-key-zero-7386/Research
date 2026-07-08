@@ -119,6 +119,12 @@
                     <input id="brand" name="brand" class="input" placeholder="例：Nintendo, Sony" value="{{ last_used.brand or '' }}">
                 </div>
 
+                <!-- カテゴリー名 -->
+                <div class="row">
+                    <label class="label" for="category">カテゴリー名：</label>
+                    <input id="category" name="category" class="input" placeholder="例：Toys & Games" value="{{ last_used.category or '' }}">
+                </div>
+
                 <!-- 最低価格 -->
                 <div class="row">
                     <label class="label" for="min_price">最低価格：</label>

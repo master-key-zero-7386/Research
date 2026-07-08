@@ -34,6 +34,15 @@ BRAND_MASTER_COLUMNS = {
     "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
 }
 
+CATEGORY_MASTER_COLUMNS = {
+    "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+    "marketplace": "TEXT NOT NULL",
+    "category_name": "TEXT NOT NULL",
+    "node_id": "TEXT NOT NULL",
+    "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+}
+
 
 
 def get_existing_columns(conn, table_name):
@@ -57,6 +66,10 @@ def migrate_table(conn, table_name, schema_dict):
         elif table_name == "brand_master":
             cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
             cur.execute(f"CREATE TABLE brand_master ({cols_def})")
+
+        elif table_name == "category_master":
+            cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
+            cur.execute(f"CREATE TABLE category_master ({cols_def})")
 
         else:
             cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
@@ -89,6 +102,13 @@ def migrate_table(conn, table_name, schema_dict):
             ON brand_master(marketplace, brand_name)
         """)
 
+    elif table_name == "category_master":
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS
+            idx_category_marketplace_unique
+            ON category_master(marketplace, category_name)
+        """)
+
     conn.commit()
 
 def migrate_db(db_name):
@@ -101,6 +121,9 @@ def migrate_db(db_name):
     elif base == "brand_master.db":
         migrate_table(conn, "brand_master", BRAND_MASTER_COLUMNS)
 
+    elif base == "category_master.db":
+        migrate_table(conn, "category_master", CATEGORY_MASTER_COLUMNS)
+
     conn.close()
     print(f"[OK] migrated: {db_name}")
 
@@ -109,7 +132,8 @@ def main():
     os.makedirs(DB_DIR, exist_ok=True)
 
     migrate_db("seller_list.db")
-    migrate_db("brand_master.db")    
+    migrate_db("brand_master.db")
+    migrate_db("category_master.db")
 
 if __name__ == "__main__":
     main()

@@ -147,6 +147,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
         const remarks = document.getElementById("remarks").value.trim();
         const brand = document.getElementById("brand").value.trim();
+        const category = document.getElementById("category").value.trim();
         const minPrice = document.getElementById("min_price").value.trim();
         const maxPrice = document.getElementById("max_price").value.trim();
         const stepPrice = document.getElementById("step_price").value.trim();
@@ -159,7 +160,7 @@ window.addEventListener("DOMContentLoaded", () => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                region, seller_id: sellerId, brand, min_price: minPrice,
+                region, seller_id: sellerId, brand, category, min_price: minPrice,
                 max_price: maxPrice, step_price: stepPrice,
                 output_folder: outputFolder, remarks
             })
@@ -177,9 +178,9 @@ window.addEventListener("DOMContentLoaded", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     region,
-                    seller_id: sellerId,                     
-                    manual_seller_id: manualInput,          
-                    brand, min_price: minPrice,
+                    seller_id: sellerId,
+                    manual_seller_id: manualInput,
+                    brand, category, min_price: minPrice,
                     max_price: maxPrice, step_price: stepPrice,
                     output_folder: outputFolder,
                     remarks
