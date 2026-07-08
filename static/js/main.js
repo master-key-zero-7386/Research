@@ -24,15 +24,17 @@ window.addEventListener("DOMContentLoaded", () => {
             globalRegionEl.addEventListener("change", function () {
                 const region = this.value;
                 loadSellerList(region);
+                loadCategoryList(region);
                 updateStoreButtonState();
             });
 
             // 初期ロード時にセラーリストとボタン状態をセット
             if (globalRegionEl.value) {
                 loadSellerList(globalRegionEl.value);
+                loadCategoryList(globalRegionEl.value);
                 updateStoreButtonState();
             }
-        }    
+        }
         
     document.getElementById("seller_id").addEventListener("change", updateStoreButtonState);
     document.getElementById("manual_seller_id").addEventListener("input", updateStoreButtonState);
@@ -65,6 +67,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
                 // ✅ セラーリストをロードしてから選択復元
                 loadSellerList(region);
+                loadCategoryList(region);
                 updateStoreButtonState();
 
                 // ✅ 出力フォルダ表示もプルダウン基準
@@ -661,6 +664,23 @@ window.addEventListener("DOMContentLoaded", () => {
             // ✅ リスト更新後に last_used を反映
             get_seller_info(region);
         });
+    }
+
+    // ✅ カテゴリー名候補：選択したregionに応じてDB保存済みカテゴリー一覧を取得・プルダウン更新
+    function loadCategoryList(region) {
+        fetch(`/amazon/get_category_list?region=${region}`)
+            .then(response => response.json())
+            .then(data => {
+                const datalist = document.getElementById("category_options");
+                if (!datalist) return;
+                datalist.innerHTML = "";
+                (data.category_list || []).forEach(name => {
+                    const opt = document.createElement("option");
+                    opt.value = name;
+                    datalist.appendChild(opt);
+                });
+            })
+            .catch(err => console.error("❌ get_category_list error:", err));
     }
 
     // ✅ ファイル一覧を読み込んで表示する関数（チェックボックス付き）

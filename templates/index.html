@@ -122,7 +122,8 @@
                 <!-- カテゴリー名 -->
                 <div class="row">
                     <label class="label" for="category">カテゴリー名：</label>
-                    <input id="category" name="category" class="input" placeholder="例：Toys & Games" value="{{ last_used.category or '' }}">
+                    <input id="category" name="category" class="input" list="category_options" placeholder="例：Toys & Games" value="{{ last_used.category or '' }}">
+                    <datalist id="category_options"></datalist>
                 </div>
 
                 <!-- 最低価格 -->
