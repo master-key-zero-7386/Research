@@ -117,7 +117,8 @@
                 <!-- ブランド名 -->
                 <div class="row">
                     <label class="label" for="brand">ブランド名：</label>
-                    <input id="brand" name="brand" class="input" placeholder="例：Nintendo, Sony" value="{{ last_used.brand or '' }}">
+                    <input id="brand" name="brand" class="input" list="brand_options" placeholder="例：Nintendo, Sony" value="{{ last_used.brand or '' }}">
+                    <datalist id="brand_options"></datalist>
                 </div>
 
                 <!-- カテゴリー名 -->

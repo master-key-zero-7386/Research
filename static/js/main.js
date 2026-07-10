@@ -25,6 +25,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 const region = this.value;
                 loadSellerList(region);
                 loadCategoryList(region);
+                loadBrandList(region);
                 updateStoreButtonState();
             });
 
@@ -32,6 +33,7 @@ window.addEventListener("DOMContentLoaded", () => {
             if (globalRegionEl.value) {
                 loadSellerList(globalRegionEl.value);
                 loadCategoryList(globalRegionEl.value);
+                loadBrandList(globalRegionEl.value);
                 updateStoreButtonState();
             }
         }
@@ -68,6 +70,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 // ✅ セラーリストをロードしてから選択復元
                 loadSellerList(region);
                 loadCategoryList(region);
+                loadBrandList(region);
                 updateStoreButtonState();
 
                 // ✅ 出力フォルダ表示もプルダウン基準
@@ -683,6 +686,23 @@ window.addEventListener("DOMContentLoaded", () => {
                 });
             })
             .catch(err => console.error("❌ get_category_list error:", err));
+    }
+
+    // ✅ ブランド名候補：選択したregionに応じてDB保存済みブランド一覧を取得・プルダウン更新
+    function loadBrandList(region) {
+        fetch(`/amazon/get_brand_list?region=${region}`)
+            .then(response => response.json())
+            .then(data => {
+                const datalist = document.getElementById("brand_options");
+                if (!datalist) return;
+                datalist.innerHTML = "";
+                (data.brand_list || []).forEach(name => {
+                    const opt = document.createElement("option");
+                    opt.value = name;
+                    datalist.appendChild(opt);
+                });
+            })
+            .catch(err => console.error("❌ get_brand_list error:", err));
     }
 
     // ✅ ファイル一覧を読み込んで表示する関数（チェックボックス付き）

@@ -237,6 +237,35 @@ def get_seller_info():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@amazon_bp.route("/get_brand_list")
+def get_brand_list():
+    region = request.args.get("region", "").lower()
+    if not region:
+        return jsonify({"status": "error", "message": "region is required"}), 400
+
+    db_path = os.path.join(BASE_DIR, "db", "brand_master.db")
+    if not os.path.exists(db_path):
+        return jsonify({"brand_list": []})
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT DISTINCT brand_name
+            FROM brand_master
+            WHERE marketplace = ?
+            ORDER BY brand_name COLLATE NOCASE ASC
+            """,
+            (region,)
+        )
+        brand_list = [row[0] for row in cursor.fetchall()]
+        conn.close()
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    return jsonify({"brand_list": brand_list})
+
 @amazon_bp.route("/get_category_list")
 def get_category_list():
     region = request.args.get("region", "").lower()
