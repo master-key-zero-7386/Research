@@ -28,6 +28,46 @@ AMAZON_DOMAIN = {
     "jp": "www.amazon.co.jp",
 }
 
+# ✅ ゴミASIN除外用キーワード（英語UI/日本語UI両対応。小文字比較のため大文字小文字は問わない）
+SPONSORED_KEYWORDS = ["sponsored", "スポンサー"]
+BESTSELLER_KEYWORDS = ["best seller", "ベストセラー"]
+OVERALL_PICK_KEYWORDS = ["overall pick", "amazon's choice", "amazonのおすすめ"]
+
+
+def get_junk_reason(product):
+    """商品カードがスポンサー枠・付帯コンテンツ・ベストセラー等のバッジ付きかどうかを判定する。
+    ゴミなら除外理由の文字列を、正常な商品なら None を返す。"""
+
+    # ✅ スポンサー枠除外（data-component-type方式・属性ベースなので言語に依存しない）
+    if product.get_attribute("data-component-type") == "sp-sponsored-result":
+        return "sponsored(data-component-type)"
+
+    # ✅ 通常の商品カード以外（関連商品・動画ウィジェット等の付帯コンテンツ）を除外
+    if product.get_attribute("data-component-type") != "s-search-result":
+        return "not-search-result(data-component-type)"
+
+    # ✅ バッジテキスト除外（全バッジを走査し、英語・日本語どちらの表記も判定する）
+    badge_texts = []
+    for selector in ("span.a-color-secondary", "span.a-badge-text"):
+        for el in product.find_elements(By.CSS_SELECTOR, selector):
+            text = el.text.strip()
+            if text:
+                badge_texts.append(text)
+
+    joined = " / ".join(badge_texts).lower()
+
+    for kw in SPONSORED_KEYWORDS:
+        if kw in joined:
+            return f"sponsored(badge:{kw})"
+    for kw in BESTSELLER_KEYWORDS:
+        if kw in joined:
+            return f"bestseller(badge:{kw})"
+    for kw in OVERALL_PICK_KEYWORDS:
+        if kw in joined:
+            return f"overall_pick(badge:{kw})"
+
+    return None
+
 if get_debug_mode():
     print("✅ a_get_seller_items.py が起動されました！")
 
@@ -197,7 +237,7 @@ else:
     brand_id = None
 
 if category_filter:
-    category_node_id = get_category_node_id(driver, country_code, category_filter, seller_id, brand_filter)
+    category_node_id = get_category_node_id(driver, country_code, category_filter)
 else:
     category_node_id = None
 
@@ -244,6 +284,7 @@ while current_min < max_price:
             sys.exit(0)
 
     items = []
+    seen_asins = set()
     page = 1
     while page <= 20:
         try:
@@ -251,33 +292,22 @@ while current_min < max_price:
             products = driver.find_elements(By.CSS_SELECTOR, "div.s-main-slot div[data-asin]:not([data-asin=''])")
 
             for product in products:
-                # ✅ スポンサーブロック除外（data-component-type方式）
-                if product.get_attribute("data-component-type") == "sp-sponsored-result":
-                    continue  # ✅ この行を修正
-
-                # ✅ バッジ除外処理
-                try:
-                    badge1 = product.find_element(By.CSS_SELECTOR, "span.a-color-secondary")
-                    if "Sponsored" in badge1.text:
-                        continue
-                except:
-                    pass
-                try:
-                    badge2 = product.find_element(By.CSS_SELECTOR, "span.a-badge-text")
-                    if "Best Seller" in badge2.text:
-                        continue
-                except:
-                    pass
-                try:
-                    badge3 = product.find_element(By.CSS_SELECTOR, "span.a-badge-text")
-                    if "Overall Pick" in badge3.text:
-                        continue
-                except:
-                    pass
-
                 asin = product.get_attribute("data-asin")
+
+                junk_reason = get_junk_reason(product)
+                if junk_reason:
+                    if get_debug_mode():
+                        print(f"⏭ [filter] 除外: asin={asin} reason={junk_reason}")
+                    continue
+
                 if not asin:
                     continue
+
+                if asin in seen_asins:
+                    if get_debug_mode():
+                        print(f"⏭ [filter] 重複のためスキップ: asin={asin}")
+                    continue
+                seen_asins.add(asin)
 
                 try:
                     title_el = product.find_element(By.CSS_SELECTOR, "h2 span")
