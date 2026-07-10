@@ -25,6 +25,7 @@ AMAZON_DOMAIN = {
     "au": "www.amazon.com.au",
     "us": "www.amazon.com",
     "ca": "www.amazon.ca",
+    "jp": "www.amazon.co.jp",
 }
 
 if get_debug_mode():

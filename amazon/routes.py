@@ -58,6 +58,7 @@ def get_shop_name_from_seller_id(seller_id, region="sg"):
             "us": "https://www.amazon.com/sp?seller=",
             "sg": "https://www.amazon.sg/sp?seller=",
             "ca": "https://www.amazon.ca/sp?seller=",
+            "jp": "https://www.amazon.co.jp/sp?seller=",
         }
         url = base_urls.get(region, "") + seller_id
         headers = {

@@ -75,7 +75,8 @@ def fetch_brand_id(driver, marketplace, brand_name):
     domain = {
         "ca": "amazon.ca",
         "us": "amazon.com",
-        "au": "amazon.com.au"
+        "au": "amazon.com.au",
+        "jp": "amazon.co.jp"
     }[marketplace.lower()]
 
     driver.get(f"https://www.{domain}/s?k={quote(brand_name)}")

@@ -76,7 +76,8 @@ def fetch_category_node_id(driver, marketplace, category_name):
     domain = {
         "ca": "amazon.ca",
         "us": "amazon.com",
-        "au": "amazon.com.au"
+        "au": "amazon.com.au",
+        "jp": "amazon.co.jp"
     }[marketplace.lower()]
 
     driver.get(f"https://www.{domain}/s?k={quote(category_name)}")

@@ -129,7 +129,9 @@ window.addEventListener("DOMContentLoaded", () => {
             baseUrl = "https://www.amazon.sg/sp?seller=";
         } else if (region === "ca") {
             baseUrl = "https://www.amazon.ca/sp?seller=";
-        }                   
+        } else if (region === "jp") {
+            baseUrl = "https://www.amazon.co.jp/sp?seller=";
+        }
 
         window.open(baseUrl + sellerId, '_blank');
     }
