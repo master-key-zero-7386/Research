@@ -20,7 +20,7 @@ def get_conn():
     return conn
 
 
-def get_category_node_id(driver, marketplace, category_name):
+def get_category_node_id(driver, marketplace, category_name, seller_id=None, brand_filter=None):
 
     conn = get_conn()
     cur = conn.cursor()
@@ -43,7 +43,9 @@ def get_category_node_id(driver, marketplace, category_name):
     return fetch_category_node_id(
         driver,
         marketplace,
-        category_name
+        category_name,
+        seller_id,
+        brand_filter
     )
 
 
@@ -71,7 +73,7 @@ def save_category_node_id(marketplace, category_name, node_id):
     conn.commit()
     conn.close()
 
-def fetch_category_node_id(driver, marketplace, category_name):
+def fetch_category_node_id(driver, marketplace, category_name, seller_id=None, brand_filter=None):
 
     domain = {
         "ca": "amazon.ca",
@@ -80,7 +82,16 @@ def fetch_category_node_id(driver, marketplace, category_name):
         "jp": "amazon.co.jp"
     }[marketplace.lower()]
 
-    driver.get(f"https://www.{domain}/s?k={quote(category_name)}")
+    # ✅ 実際の検索（セラー・ブランド）の絞り込み結果ページから部門を探す。
+    # カテゴリー名自体をキーワード検索すると、無関係な結果になり部門が一致しない。
+    parts = []
+    if seller_id and "すべて" not in seller_id:
+        parts.append(f"me={seller_id}")
+    if brand_filter:
+        parts.append(f"k={quote(brand_filter)}")
+    query = "&".join(parts) if parts else f"k={quote(category_name)}"
+
+    driver.get(f"https://www.{domain}/s?{query}")
 
     wait = WebDriverWait(driver, 10)
 

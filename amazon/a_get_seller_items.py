@@ -197,7 +197,7 @@ else:
     brand_id = None
 
 if category_filter:
-    category_node_id = get_category_node_id(driver, country_code, category_filter)
+    category_node_id = get_category_node_id(driver, country_code, category_filter, seller_id, brand_filter)
 else:
     category_node_id = None
 
