@@ -310,7 +310,9 @@ _LOOKUP_HEADERS = {
 
 @amazon_bp.route("/lookup_category_name")
 def lookup_category_name():
-    """カテゴリーノードIDを手動指定したとき、Amazon側の正式名称を確認して表示・保存する"""
+    """カテゴリーノードIDを手動指定したとき、Amazon側の正式名称を確認する（保存はしない）。
+    タイトルの書式がページによって不安定なため、ここで得られる名前はあくまで「たたき台」で、
+    実際の保存はユーザーが確認・修正してから /save_category_name を呼ぶ。"""
     region = request.args.get("region", "").lower()
     node_id = request.args.get("node_id", "").strip()
 
@@ -334,11 +336,22 @@ def lookup_category_name():
         title_tag = soup.find("title")
         title_text = title_tag.text.strip() if title_tag else ""
 
-        # ✅ タイトルは「テレビゲーム - 通販 | Amazon.co.jp」のような形式なので、
-        # サイト名（|以降）と末尾の「- 通販」等の飾りを取り除く
+        # ✅ タイトルの書式は主に2パターンある（あくまで目安、最終的にユーザーが確認する）：
+        # ① 「テレビゲーム - 通販 | Amazon.co.jp」→ サイト名（|以降）と「- 通販」等を除去
+        # ② 「Amazon.co.jp: 健康家電: ホーム＆キッチン: マッサージ機, ... など」
+        #    → コロン区切りで、サイト名の次のセグメントが正解カテゴリー名
         name = title_text.split("|")[0].strip()
-        if " - " in name:
+
+        if ":" in name:
+            parts = [p.strip() for p in name.split(":")]
+            if parts and parts[0].lower().startswith("amazon") and len(parts) > 1:
+                name = parts[1]
+            elif " - " in name:
+                name = name.rsplit(" - ", 1)[0].strip()
+        elif " - " in name:
             name = name.rsplit(" - ", 1)[0].strip()
+
+        name = name.strip()
 
         if not name:
             return jsonify({
@@ -347,10 +360,25 @@ def lookup_category_name():
                 "debug_title": title_text
             })
 
-        save_category_node_id(region, name, node_id)
-
         return jsonify({"status": "success", "name": name, "debug_title": title_text})
 
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@amazon_bp.route("/save_category_name", methods=["POST"])
+def save_category_name():
+    """lookup_category_nameで確認した内容を、ユーザーが確定してから保存する"""
+    data = request.get_json() or {}
+    region = data.get("region", "").lower()
+    node_id = data.get("node_id", "").strip()
+    name = data.get("name", "").strip()
+
+    if not region or not node_id or not name:
+        return jsonify({"status": "error", "message": "region・node_id・name が必要です"}), 400
+
+    try:
+        save_category_node_id(region, name, node_id)
+        return jsonify({"status": "success", "name": name})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

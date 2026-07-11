@@ -43,13 +43,17 @@ window.addEventListener("DOMContentLoaded", () => {
 
     updateStoreButtonState();
 
-    // ✅ カテゴリーノードIDの手動指定を確認する
+    // ✅ カテゴリーノードIDの手動指定を確認する（この時点ではまだ保存しない）
     function verifyCategoryNodeId() {
         const idInput = document.getElementById("category_node_id_manual");
         const resultEl = document.getElementById("category_node_id_verify_result");
+        const confirmRow = document.getElementById("category_node_id_confirm_row");
+        const confirmNameInput = document.getElementById("category_node_id_confirm_name");
 
         const idValue = idInput.value.trim();
         const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase();
+
+        confirmRow.style.display = "none";
 
         if (!idValue) {
             resultEl.textContent = "IDを入力してください";
@@ -64,9 +68,10 @@ window.addEventListener("DOMContentLoaded", () => {
             .then(response => response.json())
             .then(data => {
                 if (data.status === "success") {
-                    resultEl.textContent = `✅ 「${data.name}」として保存しました`;
-                    resultEl.style.color = "#2e7d32";
-                    loadCategoryList(region);  // ✅ 保存直後にカテゴリー名候補一覧を再取得して反映する
+                    resultEl.textContent = "↓内容を確認して、正しければ保存してください";
+                    resultEl.style.color = "#666";
+                    confirmNameInput.value = data.name;
+                    confirmRow.style.display = "";
                 } else {
                     resultEl.textContent = `❌ ${data.message || "確認できませんでした"}`;
                     resultEl.style.color = "#c0392b";
@@ -79,7 +84,49 @@ window.addEventListener("DOMContentLoaded", () => {
             });
     }
 
+    // ✅ ユーザーが内容を確認・修正したうえで、実際にDBへ保存する
+    function saveCategoryNodeId() {
+        const idInput = document.getElementById("category_node_id_manual");
+        const resultEl = document.getElementById("category_node_id_verify_result");
+        const confirmRow = document.getElementById("category_node_id_confirm_row");
+        const confirmNameInput = document.getElementById("category_node_id_confirm_name");
+
+        const idValue = idInput.value.trim();
+        const nameValue = confirmNameInput.value.trim();
+        const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase();
+
+        if (!nameValue) {
+            resultEl.textContent = "名前を入力してください";
+            resultEl.style.color = "#c0392b";
+            return;
+        }
+
+        fetch("/amazon/save_category_name", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ region, node_id: idValue, name: nameValue })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    resultEl.textContent = `✅ 「${data.name}」として保存しました`;
+                    resultEl.style.color = "#2e7d32";
+                    confirmRow.style.display = "none";
+                    loadCategoryList(region);  // ✅ 保存直後にカテゴリー名候補一覧を再取得して反映する
+                } else {
+                    resultEl.textContent = `❌ ${data.message || "保存できませんでした"}`;
+                    resultEl.style.color = "#c0392b";
+                }
+            })
+            .catch(err => {
+                resultEl.textContent = "❌ 通信エラー";
+                resultEl.style.color = "#c0392b";
+                console.error("❌ save_category_name error:", err);
+            });
+    }
+
     document.getElementById("verifyCategoryNodeIdBtn")?.addEventListener("click", verifyCategoryNodeId);
+    document.getElementById("saveCategoryNodeIdBtn")?.addEventListener("click", saveCategoryNodeId);
 
     console.log("✅ DOMContentLoaded 発火チェック");
 
