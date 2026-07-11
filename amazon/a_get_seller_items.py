@@ -171,6 +171,7 @@ country_code = args[9].strip().lower()
 remarks = args[10].strip() if len(args) > 10 else "未入力"
 shop_name = args[11].strip() if len(args) > 11 else "Unknown"
 category_filter = args[12].strip() if len(args) > 12 else ""
+category_node_id_manual = args[13].strip() if len(args) > 13 else ""
 
 amazon_domain = AMAZON_DOMAIN[country_code]
 
@@ -236,7 +237,10 @@ if brand_filter:
 else:
     brand_id = None
 
-if category_filter:
+if category_node_id_manual:
+    # ✅ 自動検出できない場合の手動指定（AmazonのURLのnode=の数字を直接コピペしたもの）
+    category_node_id = category_node_id_manual
+elif category_filter:
     category_node_id = get_category_node_id(driver, country_code, category_filter)
 else:
     category_node_id = None

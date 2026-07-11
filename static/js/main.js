@@ -43,6 +43,44 @@ window.addEventListener("DOMContentLoaded", () => {
 
     updateStoreButtonState();
 
+    // ✅ カテゴリーノードIDの手動指定を確認する
+    function verifyCategoryNodeId() {
+        const idInput = document.getElementById("category_node_id_manual");
+        const resultEl = document.getElementById("category_node_id_verify_result");
+
+        const idValue = idInput.value.trim();
+        const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase();
+
+        if (!idValue) {
+            resultEl.textContent = "IDを入力してください";
+            resultEl.style.color = "#c0392b";
+            return;
+        }
+
+        resultEl.textContent = "確認中...";
+        resultEl.style.color = "#666";
+
+        fetch(`/amazon/lookup_category_name?region=${region}&node_id=${encodeURIComponent(idValue)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    resultEl.textContent = `✅ 「${data.name}」として保存しました`;
+                    resultEl.style.color = "#2e7d32";
+                    loadCategoryList(region);  // ✅ 保存直後にカテゴリー名候補一覧を再取得して反映する
+                } else {
+                    resultEl.textContent = `❌ ${data.message || "確認できませんでした"}`;
+                    resultEl.style.color = "#c0392b";
+                }
+            })
+            .catch(err => {
+                resultEl.textContent = "❌ 通信エラー";
+                resultEl.style.color = "#c0392b";
+                console.error("❌ lookup_category_name error:", err);
+            });
+    }
+
+    document.getElementById("verifyCategoryNodeIdBtn")?.addEventListener("click", verifyCategoryNodeId);
+
     console.log("✅ DOMContentLoaded 発火チェック");
 
     // ✅ ASIN抽出ボタンのイベント委譲（再描画されても有効）
@@ -156,6 +194,7 @@ window.addEventListener("DOMContentLoaded", () => {
         const remarks = document.getElementById("remarks").value.trim();
         const brand = document.getElementById("brand").value.trim();
         const category = document.getElementById("category").value.trim();
+        const categoryNodeIdManual = document.getElementById("category_node_id_manual").value.trim();
         const minPrice = document.getElementById("min_price").value.trim();
         const maxPrice = document.getElementById("max_price").value.trim();
         const stepPrice = document.getElementById("step_price").value.trim();
@@ -170,7 +209,8 @@ window.addEventListener("DOMContentLoaded", () => {
             body: JSON.stringify({
                 region, seller_id: sellerId, brand, category, min_price: minPrice,
                 max_price: maxPrice, step_price: stepPrice,
-                output_folder: outputFolder, remarks
+                output_folder: outputFolder, remarks,
+                category_node_id_manual: categoryNodeIdManual
             })
         })
         .then(response => {
@@ -191,7 +231,8 @@ window.addEventListener("DOMContentLoaded", () => {
                     brand, category, min_price: minPrice,
                     max_price: maxPrice, step_price: stepPrice,
                     output_folder: outputFolder,
-                    remarks
+                    remarks,
+                    category_node_id_manual: categoryNodeIdManual
                 })
             });
         })

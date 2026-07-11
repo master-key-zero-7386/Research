@@ -4,6 +4,7 @@
 
 import os
 import re
+import html
 import time
 import sqlite3
 from selenium.webdriver.common.by import By
@@ -42,6 +43,8 @@ def get_category_node_id(driver, marketplace, category_name):
     if row:
         return row["node_id"]
 
+    # ✅ 完全一致以外は自動採用しない。曖昧一致は誤選択の原因になるため、
+    # 完全一致しなかった場合は必ずライブ探索→確認ポップアップ（fetch_category_node_id内）を経由する。
     return fetch_category_node_id(
         driver,
         marketplace,
@@ -84,6 +87,108 @@ def _find_matching_node_id(driver, category_name):
             if match:
                 return match.group(1)
     return None
+
+
+def _collect_candidates(driver):
+    """メニュー内に現在表示されている hmenu-item を (表示名, node_id) のリストとして集める"""
+    candidates = []
+    for link in driver.find_elements(By.CSS_SELECTOR, 'a.hmenu-item[href*="node="]'):
+        text = link.text.strip()
+        href = link.get_attribute("href") or ""
+        match = re.search(r"node=(\d+)", href)
+        if text and match:
+            candidates.append((text, match.group(1)))
+    return candidates
+
+
+def _prompt_user_to_pick_category(driver, category_name, candidates):
+    """完全一致が見つからなかった場合、候補一覧をブラウザ画面上に表示してユーザーに選んでもらう。
+    選んだ候補の (公式表示名, node_id) を返す。キャンセルされたら (None, None) を返す。"""
+
+    # 表示名が重複している候補はまとめる（同じテキストが複数回集まることがあるため）
+    unique = {}
+    for text, node_id in candidates:
+        if text not in unique:
+            unique[text] = node_id
+
+    if not unique:
+        return None, None
+
+    options_html = "".join(
+        '<button class="rt_cat_btn" data-node-id="%s" '
+        'style="display:block;width:100%%;text-align:left;margin:4px 0;padding:10px;'
+        'font-size:15px;background:#fff;border:1px solid #ccc;border-radius:4px;cursor:pointer;">%s</button>'
+        % (html.escape(node_id), html.escape(text))
+        for text, node_id in unique.items()
+    )
+
+    safe_category_name = html.escape(category_name)
+
+    banner_script = """
+    var overlay = document.createElement('div');
+    overlay.id = 'rt_category_picker';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%%';
+    overlay.style.height = '100%%';
+    overlay.style.background = 'rgba(0,0,0,0.6)';
+    overlay.style.zIndex = '999999';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+
+    var box = document.createElement('div');
+    box.style.background = '#fff';
+    box.style.padding = '20px';
+    box.style.width = '480px';
+    box.style.maxWidth = '90%%';
+    box.style.maxHeight = '80%%';
+    box.style.overflowY = 'auto';
+    box.style.borderRadius = '8px';
+    box.innerHTML = '<h3>「%s」に完全一致するカテゴリーが見つかりませんでした。<br>近いものを選んでください：</h3>%s' +
+        '<button id="rt_cat_cancel" style="display:block;width:100%%;margin-top:12px;padding:10px;background:#eee;border:1px solid #ccc;border-radius:4px;cursor:pointer;">キャンセル（カテゴリー絞り込みなしで続行）</button>';
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    window.__rt_category_node_id = null;
+    window.__rt_category_cancelled = false;
+
+    var btns = box.querySelectorAll('.rt_cat_btn');
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].onclick = function() {
+            window.__rt_category_node_id = this.getAttribute('data-node-id');
+        };
+    }
+    document.getElementById('rt_cat_cancel').onclick = function() {
+        window.__rt_category_cancelled = true;
+    };
+    """ % (safe_category_name, options_html)
+
+    driver.execute_script(banner_script)
+
+    if get_debug_mode():
+        print(f"▶ [category] 候補{len(unique)}件を画面に表示。ユーザーの選択を待機中: {list(unique.keys())!r}")
+
+    while True:
+        node_id = driver.execute_script("return window.__rt_category_node_id;")
+        cancelled = driver.execute_script("return window.__rt_category_cancelled;")
+        if node_id or cancelled:
+            break
+        time.sleep(0.5)
+
+    driver.execute_script("""
+        var o = document.getElementById('rt_category_picker');
+        if (o) o.remove();
+    """)
+
+    if not node_id:
+        return None, None
+
+    # 選ばれた node_id から公式表示名を逆引きする
+    chosen_text = next((text for text, nid in unique.items() if nid == node_id), category_name)
+    return chosen_text, node_id
 
 
 def _save_debug_screenshot(driver, marketplace):
@@ -148,6 +253,7 @@ def fetch_category_node_id(driver, marketplace, category_name):
 
     # トップレベル自体がすでに一致するか（node付きで表示されている場合）先に確認
     node_id = _find_matching_node_id(driver, category_name)
+    all_candidates = []
 
     if not node_id:
         top_items = driver.find_elements(By.CSS_SELECTOR, "a.hmenu-item[data-menu-id]")
@@ -173,8 +279,23 @@ def fetch_category_node_id(driver, marketplace, category_name):
                     break
                 time.sleep(0.25)
 
+            # 完全一致しなくても、このサブメニューで表示された候補は後で提案用に集めておく
+            all_candidates.extend(_collect_candidates(driver))
+
             if node_id:
                 break
+
+    picked_by_user = False
+    save_name = category_name
+
+    if not node_id and all_candidates:
+        if get_debug_mode():
+            print("▶ [category] 完全一致する部門なし。候補をユーザーに提示します")
+        chosen_text, node_id = _prompt_user_to_pick_category(driver, category_name, all_candidates)
+        picked_by_user = node_id is not None
+        if picked_by_user:
+            # ✅ 検索に使った生の入力文字列ではなく、選ばれた公式表示名をキーとして保存する
+            save_name = chosen_text
 
     if get_debug_mode() and not node_id:
         print("▶ [category] 一致する部門リンクなし → 保存されません")
@@ -185,11 +306,12 @@ def fetch_category_node_id(driver, marketplace, category_name):
 
     save_category_node_id(
         marketplace,
-        category_name,
+        save_name,
         node_id
     )
 
     if get_debug_mode():
-        print(f"▶ [category] 一致・保存完了: node_id={node_id}")
+        tag = "ユーザー選択・保存完了" if picked_by_user else "一致・保存完了"
+        print(f"▶ [category] {tag}: {save_name!r} → node_id={node_id}")
 
     return node_id

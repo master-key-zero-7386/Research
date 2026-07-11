@@ -17,11 +17,13 @@ from datetime import datetime, timedelta
 from flask import (Blueprint, render_template, request, redirect, url_for, jsonify, send_file, make_response)
 from werkzeug.utils import secure_filename
 from bs4 import BeautifulSoup
+from urllib.parse import unquote
 from .constants import BASE_DIR, CONFIG_PATH
 from utils.config_loader import cfg, get_debug_mode
 from send2trash import send2trash
-from flask import url_for 
-import sqlite3 
+from flask import url_for
+import sqlite3
+from amazon.category_master import save_category_node_id
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -295,6 +297,63 @@ def get_category_list():
 
     return jsonify({"category_list": category_list})
 
+_LOOKUP_DOMAIN = {
+    "au": "amazon.com.au",
+    "us": "amazon.com",
+    "ca": "amazon.ca",
+    "jp": "amazon.co.jp",
+}
+
+_LOOKUP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+}
+
+@amazon_bp.route("/lookup_category_name")
+def lookup_category_name():
+    """カテゴリーノードIDを手動指定したとき、Amazon側の正式名称を確認して表示・保存する"""
+    region = request.args.get("region", "").lower()
+    node_id = request.args.get("node_id", "").strip()
+
+    if not region or not node_id:
+        return jsonify({"status": "error", "message": "region と node_id が必要です"}), 400
+
+    domain = _LOOKUP_DOMAIN.get(region)
+    if not domain:
+        return jsonify({"status": "error", "message": f"未対応のマーケットプレイス: {region}"}), 400
+
+    try:
+        resp = requests.get(
+            f"https://www.{domain}/b?node={node_id}",
+            headers=_LOOKUP_HEADERS,
+            timeout=10,
+            allow_redirects=True
+        )
+        resp.encoding = resp.apparent_encoding or resp.encoding
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        title_tag = soup.find("title")
+        title_text = title_tag.text.strip() if title_tag else ""
+
+        # ✅ タイトルは「テレビゲーム - 通販 | Amazon.co.jp」のような形式なので、
+        # サイト名（|以降）と末尾の「- 通販」等の飾りを取り除く
+        name = title_text.split("|")[0].strip()
+        if " - " in name:
+            name = name.rsplit(" - ", 1)[0].strip()
+
+        if not name:
+            return jsonify({
+                "status": "error",
+                "message": "名前を特定できませんでした（ページのタイトルからカテゴリー名が読み取れません）",
+                "debug_title": title_text
+            })
+
+        save_category_node_id(region, name, node_id)
+
+        return jsonify({"status": "success", "name": name, "debug_title": title_text})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @amazon_bp.route("/get_seller_list")  # DB化完了 + include_hidden対応
 def get_seller_list():
     region = request.args.get("region", "").lower() 
@@ -366,6 +425,7 @@ def save_last_used_config(form_data):
             "seller_id": form_data.get("seller_id", ""),
             "brand": form_data.get("brand", ""),
             "category": form_data.get("category", ""),
+            "category_node_id_manual": form_data.get("category_node_id_manual", ""),
             "min_price": form_data.get("min_price", ""),
             "max_price": form_data.get("max_price", ""),
             "step_price": form_data.get("step_price", ""),
@@ -416,6 +476,7 @@ def process():
     seller_id = data.get("seller_id")
     brand = data.get("brand")
     category = data.get("category")
+    category_node_id_manual = data.get("category_node_id_manual", "").strip()
     min_price = data.get("min_price")
     max_price = data.get("max_price")
     step_price = data.get("step_price")
@@ -470,7 +531,8 @@ def process():
             region,         # args[9]
             remarks,        # args[10]
             shop_name,      # args[11]
-            category        # args[12]
+            category,                 # args[12]
+            category_node_id_manual   # args[13]（自動検出できない時のカテゴリーノードID手動指定）
         ]
         # subprocess.Popen(["python", script_path] + args)
         subprocess.Popen([sys.executable, script_path] + args)
@@ -508,6 +570,7 @@ def save_config():
             "seller_id": data.get("seller_id", ""),
             "brand": data.get("brand", ""),
             "category": data.get("category", ""),
+            "category_node_id_manual": data.get("category_node_id_manual", ""),
             "min_price": data.get("min_price", ""),
             "max_price": data.get("max_price", ""),
             "step_price": data.get("step_price", ""),
