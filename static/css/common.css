@@ -210,8 +210,8 @@ input[type="checkbox"] {
 
 /* ✅ 保存ファイル一枠用 */
 #asin-file-list {
-    min-height: 150px;
-    max-height: 150px;
+    min-height: 450px;
+    max-height: 450px;
     overflow-y: auto;
     overflow-x: auto; 
     border: 1px solid #ccc;
