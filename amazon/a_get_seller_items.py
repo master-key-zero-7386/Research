@@ -35,16 +35,12 @@ OVERALL_PICK_KEYWORDS = ["overall pick", "amazon's choice", "amazonのおすす�
 
 
 def get_junk_reason(product):
-    """商品カードがスポンサー枠・付帯コンテンツ・ベストセラー等のバッジ付きかどうかを判定する。
+    """商品カードがスポンサー枠・ベストセラー等のバッジ付きかどうかを判定する。
     ゴミなら除外理由の文字列を、正常な商品なら None を返す。"""
 
     # ✅ スポンサー枠除外（data-component-type方式・属性ベースなので言語に依存しない）
     if product.get_attribute("data-component-type") == "sp-sponsored-result":
         return "sponsored(data-component-type)"
-
-    # ✅ 通常の商品カード以外（関連商品・動画ウィジェット等の付帯コンテンツ）を除外
-    if product.get_attribute("data-component-type") != "s-search-result":
-        return "not-search-result(data-component-type)"
 
     # ✅ バッジテキスト除外（全バッジを走査し、英語・日本語どちらの表記も判定する）
     badge_texts = []
@@ -295,8 +291,26 @@ while current_min < max_price:
             wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.s-main-slot div[data-asin]:not([data-asin=''])")))
             products = driver.find_elements(By.CSS_SELECTOR, "div.s-main-slot div[data-asin]:not([data-asin=''])")
 
+            # ✅ 同じASINに対して複数のDOM要素がヒットすることがある（「カートに入れる」の
+            # オーバーレイ等、本体の商品カードに付帯する要素にも同じdata-asinが付くケース）。
+            # ASINごとにグループ化し、実際の商品カード（data-component-type="s-search-result"）が
+            # あればそれを優先して1件だけ判定・抽出する。付帯要素側だけを見てゴミ判定してしまうと
+            # 正規の商品まで除外されてしまうため。
+            candidates_by_asin = {}
             for product in products:
                 asin = product.get_attribute("data-asin")
+                if not asin:
+                    continue
+                candidates_by_asin.setdefault(asin, []).append(product)
+
+            for asin, candidates in candidates_by_asin.items():
+                if asin in seen_asins:
+                    continue
+
+                product = next(
+                    (c for c in candidates if c.get_attribute("data-component-type") == "s-search-result"),
+                    candidates[0]
+                )
 
                 junk_reason = get_junk_reason(product)
                 if junk_reason:
@@ -304,13 +318,6 @@ while current_min < max_price:
                         print(f"⏭ [filter] 除外: asin={asin} reason={junk_reason}")
                     continue
 
-                if not asin:
-                    continue
-
-                if asin in seen_asins:
-                    if get_debug_mode():
-                        print(f"⏭ [filter] 重複のためスキップ: asin={asin}")
-                    continue
                 seen_asins.add(asin)
 
                 try:
