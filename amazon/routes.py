@@ -564,8 +564,38 @@ def process():
         ]
         # subprocess.Popen(["python", script_path] + args)
         subprocess.Popen([sys.executable, script_path] + args)
-        return redirect(url_for('amazon.index', region=region, tab="research", completed="true")) 
-        
+        return redirect(url_for('amazon.index', region=region, tab="research", completed="true"))
+
+@amazon_bp.route("/scrape_status")
+def scrape_status():
+    """a_get_seller_items.py が価格帯ごとに書き出す状態ファイルを読み、
+    Research画面に「どの価格帯が20ページ上限で頭打ちになったか」を表示するためのAPI。"""
+    region = request.args.get("region", "").lower()
+    if not region:
+        return jsonify({"status": "error", "message": "regionが指定されていません"}), 400
+
+    config = load_config_from_file()
+    log_dir = os.path.join(BASE_DIR, config.get("log_dir", "log"))
+    status_path = os.path.join(log_dir, f"status_{region}.json")
+
+    if not os.path.exists(status_path):
+        return jsonify({"status": "success", "running": False, "bands": []})
+
+    try:
+        with open(status_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return jsonify({"status": "success", "running": False, "bands": []})
+
+    return jsonify({
+        "status": "success",
+        "running": data.get("running", False),
+        "seller_id": data.get("seller_id", ""),
+        "step_price": data.get("step_price", ""),
+        "updated_at": data.get("updated_at", ""),
+        "bands": data.get("bands", [])
+    })
+
 @amazon_bp.route("/save_config", methods=["POST"])
 def save_config():
     try:

@@ -1194,6 +1194,49 @@ window.addEventListener("DOMContentLoaded", () => {
         if (!document.getElementById("open-trash-btn")) {
         host.insertBefore(btn, host.firstChild);
         }
-    }   
+    }
+});
+
+// ✅ 価格帯ごとの取得状況（20ページ上限で頭打ちになった価格帯）をResearch画面に表示する
+function renderScrapeStatus(data) {
+    const el = document.getElementById("scrapeStatusList");
+    if (!el) return;
+
+    const bands = data.bands || [];
+    if (bands.length === 0) {
+        el.textContent = data.running ? "実行中…（結果はまだありません）" : "まだ実行していません";
+        return;
+    }
+
+    const rows = bands.map(b => {
+        const label = `$${b.range}`;
+        const state = b.capped
+            ? `<span style="color:#c0392b; font-weight:bold;">オーバー（${b.count}件）</span>`
+            : `<span style="color:#555;">-（${b.count}件）</span>`;
+        return `<div>${label}　${state}</div>`;
+    }).join("");
+
+    const footer = data.running
+        ? `<div style="margin-top:6px; color:#888;">実行中…</div>`
+        : "";
+
+    el.innerHTML = rows + footer;
+}
+
+function pollScrapeStatus() {
+    const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase();
+    fetch(`/amazon/scrape_status?region=${region}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") renderScrapeStatus(data);
+        })
+        .catch(err => console.error("❌ scrape_status取得失敗:", err));
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+    pollScrapeStatus();
+    setInterval(pollScrapeStatus, 5000);
+
+    document.getElementById("globalRegion")?.addEventListener("change", pollScrapeStatus);
 });
 

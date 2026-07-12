@@ -201,6 +201,27 @@ jst_now = datetime.utcnow() + timedelta(hours=9)
 with open(log_path, "w", encoding="utf-8") as log:
     log.write(f"【{country_code.upper()}版ログ】{jst_now.strftime('%Y-%m-%d %H:%M:%S')} JST\n")
 
+# ✅ 画面側（Research画面）に価格帯ごとの取得状況を表示するための状態ファイル
+status_path = os.path.join(log_dir, f"status_{country_code}.json")
+status_bands = []
+
+def write_status(running):
+    try:
+        now_jst = datetime.utcnow() + timedelta(hours=9)
+        with open(status_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "seller_id": seller_id,
+                "region": country_code,
+                "step_price": step,
+                "running": running,
+                "updated_at": now_jst.strftime("%Y-%m-%d %H:%M:%S"),
+                "bands": status_bands
+            }, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+write_status(running=True)
+
 # Chrome初期化
 options = Options()
 options.add_argument(f"--user-data-dir={profile_path}")
@@ -280,6 +301,7 @@ while current_min < max_price:
         if not proceed:
             if get_debug_mode():
                 print("❌ ユーザーがキャンセルを押したため処理を中止します")
+            write_status(running=False)
             driver.quit()
             sys.exit(0)
 
@@ -356,6 +378,11 @@ while current_min < max_price:
         except:
             break
 
+    # ✅ page が20（上限）まで達している場合、Amazon側にまだ続きがあるのに
+    # ページ上限で打ち切った可能性が高い（＝この価格帯にはASINが取り切れていない）。
+    # ステップ幅をさらに狭めて再取得すべき価格帯として分かるように警告を出す。
+    hit_page_cap = page >= 20
+
     os.makedirs(output_folder, exist_ok=True)
     price_range = f"{int(current_min)}-{int(current_max)}"
     category_part = category_filter.lower() if category_filter else (category_slug if category_slug else "all")
@@ -363,7 +390,8 @@ while current_min < max_price:
 
     now_jst = datetime.utcnow() + timedelta(hours=9)  # ✅ タイムスタンプ生成 # この行は新規追加
     timestamp = now_jst.strftime("%Y%m%d_%H%M")       # この行は新規追加
-    filename = f"{country_code.upper()}_{timestamp}_{seller_id}_{category_part}_{brand_part}_{price_range}.csv"
+    cap_suffix = "_CAPPED要再取得" if hit_page_cap else ""
+    filename = f"{country_code.upper()}_{timestamp}_{seller_id}_{category_part}_{brand_part}_{price_range}{cap_suffix}.csv"
     csv_path = os.path.join(output_folder, filename)
 
     with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
@@ -372,8 +400,30 @@ while current_min < max_price:
         writer.writerows(items)
     if get_debug_mode():
         print(f"✅ {filename} 出力完了（{len(items)}件）")
+
+    if hit_page_cap:
+        warning = (
+            f"⚠ [cap] price_range={price_range} で20ページ上限に到達しました"
+            f"（取得件数={len(items)}件）。この価格帯はまだASINが残っている可能性があります。"
+            f" ステップ幅をさらに狭めて再取得してください。"
+        )
+        print(warning)
+        try:
+            with open(log_path, "a", encoding="utf-8") as log:
+                log.write(warning + "\n")
+        except Exception:
+            pass
+
+    status_bands.append({
+        "range": price_range,
+        "count": len(items),
+        "capped": hit_page_cap
+    })
+    write_status(running=True)
+
     current_min = current_max
 
+write_status(running=False)
 driver.quit()
 
 # 終了時にService Worker等の肥大化しやすいゴミだけ削除（Cookie・住所設定は消えない）
