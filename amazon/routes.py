@@ -31,8 +31,11 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 bp = Blueprint("amazon", __name__)
 amazon_bp = bp
 
-TRASH_DIR = os.path.join(BASE_DIR, "tool_trash") 
+TRASH_DIR = os.path.join(BASE_DIR, "tool_trash")
 os.makedirs(TRASH_DIR, exist_ok=True)
+
+# ✅ 実行中のスクレイピングプロセスを region 単位で追跡する（停止ボタン用）
+running_scrape_processes = {}
 
 # ✅ ごみ箱に移動したファイルの「元の場所」を記録する台帳
 TRASH_MANIFEST_PATH = os.path.join(TRASH_DIR, "_manifest.json")
@@ -88,6 +91,24 @@ def get_shop_name_from_seller_id(seller_id, region="sg"):
     except Exception as e:
         pass
         return "取得失敗"
+
+def _validate_price_range(max_price, step_price):
+    """価格帯が空欄のまま実行され「$0〜無限大」のような際限のないスキャンに
+    なってしまうのを防ぐための入力チェック。問題があればエラーメッセージを、
+    問題なければ None を返す。"""
+    if not max_price or not str(max_price).strip():
+        return "最高価格を入力してください（未入力だと上限なく価格帯を検索し続けてしまいます）。"
+
+    try:
+        step_val = float(step_price) if step_price and str(step_price).strip() else 10.0
+    except (TypeError, ValueError):
+        return "ステップ幅の形式が正しくありません。"
+
+    if step_val <= 0:
+        return "ステップ幅は0より大きい値にしてください。"
+
+    return None
+
 
 def load_config_from_file():
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -515,7 +536,11 @@ def process():
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         config = json.load(f)
 
-    save_last_used_config(data) 
+    save_last_used_config(data)
+
+    error_message = _validate_price_range(max_price, step_price)
+    if error_message:
+        return jsonify({"status": "error", "message": error_message}), 400
 
     # ▼ 最後に追加：AU の場合のみ処理スクリプトを実行
     if region:
@@ -563,8 +588,117 @@ def process():
             category_node_id_manual   # args[13]（自動検出できない時のカテゴリーノードID手動指定）
         ]
         # subprocess.Popen(["python", script_path] + args)
-        subprocess.Popen([sys.executable, script_path] + args)
+        proc = subprocess.Popen([sys.executable, script_path] + args)
+        running_scrape_processes[region.lower()] = proc
         return redirect(url_for('amazon.index', region=region, tab="research", completed="true"))
+
+@amazon_bp.route("/process_fast", methods=["POST"])
+def process_fast():
+    """a_get_seller_items_fast.py（requestsによる高速版・ブラウザ不使用）を起動する。
+    セラー・ブランド・価格帯のみ対応。カテゴリー絞り込みは非対応（Selenium版の/processを使うこと）。"""
+
+    data = request.get_json()
+
+    region = data.get("region")
+    manual_seller_id = data.get("manual_seller_id", "").strip()
+    seller_id = data.get("seller_id")
+    brand = data.get("brand") or ""
+    min_price = data.get("min_price")
+    max_price = data.get("max_price")
+    step_price = data.get("step_price")
+    remarks = data.get("remarks")
+
+    save_last_used_config(data)
+
+    if not region:
+        return jsonify({"status": "error", "message": "regionが指定されていません"}), 400
+
+    error_message = _validate_price_range(max_price, step_price)
+    if error_message:
+        return jsonify({"status": "error", "message": error_message}), 400
+
+    used_seller_id = manual_seller_id or seller_id or ""
+    step_price = step_price.strip() if step_price else "10"
+    remarks = remarks.strip() if remarks else "未入力"
+    shop_name = get_shop_name_from_seller_id(used_seller_id, region) if used_seller_id else ""
+
+    try:
+        db_path = os.path.join(BASE_DIR, "db", "seller_list.db")
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE seller_list SET last_used=0 WHERE country_code=?",
+            (region.upper(),)
+        )
+        cursor.execute(
+            "UPDATE seller_list SET last_used=1 WHERE country_code=? AND seller_id=?",
+            (region.upper(), used_seller_id)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print("❌ last_used 更新失敗:", e)
+
+    script_name = "a_get_seller_items_fast.py"
+    script_path = os.path.join(os.getcwd(), "amazon", script_name)
+
+    args = [
+        used_seller_id,  # args[0]
+        brand,           # args[1]
+        min_price,       # args[2]
+        max_price,       # args[3]
+        step_price,      # args[4]
+        region,          # args[5]
+        remarks,         # args[6]
+        shop_name,       # args[7]
+    ]
+    proc = subprocess.Popen([sys.executable, script_path] + args)
+    running_scrape_processes[region.lower()] = proc
+    return redirect(url_for('amazon.index', region=region, tab="research", completed="true"))
+
+@amazon_bp.route("/stop_scrape", methods=["POST"])
+def stop_scrape():
+    """実行中のスクレイピングプロセス（Selenium版・高速版どちらも）を強制終了する。"""
+    data = request.get_json(force=True, silent=True) or {}
+    region = (data.get("region") or "").lower()
+
+    if not region:
+        return jsonify({"status": "error", "message": "regionが指定されていません"}), 400
+
+    proc = running_scrape_processes.get(region)
+    if not proc or proc.poll() is not None:
+        running_scrape_processes.pop(region, None)
+        return jsonify({"status": "error", "message": "実行中のプロセスが見つかりません"}), 404
+
+    try:
+        # ✅ taskkillで子プロセス（Selenium版の場合はChromeも）ごと確実に終了させる
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+            check=False,
+            capture_output=True
+        )
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    running_scrape_processes.pop(region, None)
+
+    # ✅ Research画面の「価格帯ごとの取得状況」パネルが「実行中…」のまま
+    # 残らないよう、状態ファイルにも停止を反映する
+    try:
+        config = load_config_from_file()
+        log_dir = os.path.join(BASE_DIR, config.get("log_dir", "log"))
+        status_path = os.path.join(log_dir, f"status_{region}.json")
+        if os.path.exists(status_path):
+            with open(status_path, "r", encoding="utf-8") as f:
+                status_data = json.load(f)
+            status_data["running"] = False
+            status_data["stopped_by_user"] = True
+            with open(status_path, "w", encoding="utf-8") as f:
+                json.dump(status_data, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+    return jsonify({"status": "success", "message": "停止しました。"})
 
 @amazon_bp.route("/scrape_status")
 def scrape_status():
@@ -590,6 +724,7 @@ def scrape_status():
     return jsonify({
         "status": "success",
         "running": data.get("running", False),
+        "stopped_by_user": data.get("stopped_by_user", False),
         "seller_id": data.get("seller_id", ""),
         "step_price": data.get("step_price", ""),
         "updated_at": data.get("updated_at", ""),

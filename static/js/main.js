@@ -284,7 +284,11 @@ window.addEventListener("DOMContentLoaded", () => {
             });
         })
         .then(response => {
-            if (!response.ok) throw new Error("処理リクエスト失敗");
+            if (!response.ok) {
+                return response.json()
+                    .catch(() => ({}))
+                    .then(err => { throw new Error(err.message || "処理リクエスト失敗"); });
+            }
 
             // ✅ タブ遷移をリロードではなくJSで切り替える
             document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
@@ -298,15 +302,114 @@ window.addEventListener("DOMContentLoaded", () => {
         })
         .catch(error => {
             console.error("❌ エラー:", error);
-            alert("実行中にエラーが発生しました");
+            alert(error.message || "実行中にエラーが発生しました");
         });
     }
-        
+
     const runBtn = document.getElementById("runBtn");
     if (runBtn) {
         runBtn.addEventListener("click", (event) => {
             event.preventDefault();
             runExtraction();
+        });
+    }
+
+    // ✅ 高速実行（requestsによる直接取得・ブラウザ不使用。カテゴリー絞り込みは非対応）
+    function runExtractionFast() {
+        const region = document.getElementById("globalRegion").value.toLowerCase();
+        const sellerSelect = document.getElementById("seller_id").value.trim();
+        const manualInput = document.getElementById("manual_seller_id").value.trim();
+        const sellerId = manualInput || sellerSelect;
+
+        const remarks = document.getElementById("remarks").value.trim();
+        const brand = document.getElementById("brand").value.trim();
+        const minPrice = document.getElementById("min_price").value.trim();
+        const maxPrice = document.getElementById("max_price").value.trim();
+        const stepPrice = document.getElementById("step_price").value.trim();
+        const outputFolder = document.getElementById("output_folder").value.trim();
+
+        fetch("/amazon/save_config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                region, seller_id: sellerId, brand, min_price: minPrice,
+                max_price: maxPrice, step_price: stepPrice,
+                output_folder: outputFolder, remarks
+            })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error("ネットワークエラー");
+            return response.json();
+        })
+        .then(() => {
+            return fetch("/amazon/process_fast", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    region,
+                    seller_id: sellerId,
+                    manual_seller_id: manualInput,
+                    brand, min_price: minPrice,
+                    max_price: maxPrice, step_price: stepPrice,
+                    output_folder: outputFolder,
+                    remarks
+                })
+            });
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json()
+                    .catch(() => ({}))
+                    .then(err => { throw new Error(err.message || "処理リクエスト失敗"); });
+            }
+
+            document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+            document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+
+            const researchTab = document.querySelector('[data-tab="research"]');
+            if (researchTab) researchTab.classList.add("active");
+
+            const researchContent = document.getElementById("research");
+            if (researchContent) researchContent.classList.add("active");
+        })
+        .catch(error => {
+            console.error("❌ エラー:", error);
+            alert(error.message || "実行中にエラーが発生しました");
+        });
+    }
+
+    const runFastBtn = document.getElementById("runFastBtn");
+    if (runFastBtn) {
+        runFastBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            runExtractionFast();
+        });
+    }
+
+    // ✅ 停止ボタン（Selenium版・高速版どちらの実行中プロセスも強制終了する）
+    const stopScrapeBtn = document.getElementById("stopScrapeBtn");
+    if (stopScrapeBtn) {
+        stopScrapeBtn.addEventListener("click", () => {
+            const region = document.getElementById("globalRegion").value.toLowerCase();
+            if (!confirm("実行中の取得を停止しますか？")) return;
+
+            stopScrapeBtn.disabled = true;
+            fetch("/amazon/stop_scrape", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ region })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status !== "success") {
+                    alert(data.message || "停止に失敗しました。");
+                }
+                pollScrapeStatus();
+            })
+            .catch(error => {
+                console.error("❌ 停止失敗:", error);
+                alert("停止に失敗しました。");
+            });
         });
     }
 
@@ -1200,6 +1303,10 @@ window.addEventListener("DOMContentLoaded", () => {
 // ✅ 価格帯ごとの取得状況（20ページ上限で頭打ちになった価格帯）をResearch画面に表示する
 function renderScrapeStatus(data) {
     const el = document.getElementById("scrapeStatusList");
+
+    const stopBtn = document.getElementById("stopScrapeBtn");
+    if (stopBtn) stopBtn.disabled = !data.running;
+
     if (!el) return;
 
     const bands = data.bands || [];
@@ -1216,9 +1323,12 @@ function renderScrapeStatus(data) {
         return `<div>${label}　${state}</div>`;
     }).join("");
 
-    const footer = data.running
-        ? `<div style="margin-top:6px; color:#888;">実行中…</div>`
-        : "";
+    let footer = "";
+    if (data.running) {
+        footer = `<div style="margin-top:6px; color:#888;">実行中…</div>`;
+    } else if (data.stopped_by_user) {
+        footer = `<div style="margin-top:6px; color:#c0392b;">ユーザーにより停止されました</div>`;
+    }
 
     el.innerHTML = rows + footer;
 }
