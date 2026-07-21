@@ -746,6 +746,30 @@ window.addEventListener("DOMContentLoaded", () => {
                 container.addEventListener("change", delegate);
                 container.addEventListener("input", delegate);
 
+                // Shift/Ctrl(Cmd)クリックでの範囲選択・複数選択に対応
+                let lastAsinCheckbox = null;
+                container.addEventListener("click", function (e) {
+                    const target = e.target;
+                    if (!target.matches('input[type="checkbox"][value]')) return;
+
+                    if (e.shiftKey && lastAsinCheckbox && lastAsinCheckbox !== target) {
+                        const boxes = Array.from(container.querySelectorAll('input[type="checkbox"][value]'));
+                        const start = boxes.indexOf(lastAsinCheckbox);
+                        const end = boxes.indexOf(target);
+                        if (start !== -1 && end !== -1) {
+                            const [from, to] = start < end ? [start, end] : [end, start];
+                            const state = target.checked;
+                            for (let i = from; i <= to; i++) {
+                                boxes[i].checked = state;
+                            }
+                        }
+                    }
+
+                    // Ctrl/Cmd+クリックは個別トグル（既定動作のまま、他の選択は維持）
+                    lastAsinCheckbox = target;
+                    updateExtractBtnState();
+                });
+
                 // 初期確定
                 updateExtractBtnState();
             })
