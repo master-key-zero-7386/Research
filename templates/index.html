@@ -153,13 +153,13 @@
 
                 <!-- 最高価格 -->
                 <div class="row">
-                    <label class="label" for="max_price">最高価格：</label>
+                    <label class="label" for="max_price">最高価格：<span style="font-size:12px; color:#c0392b; font-weight:normal;">（必須）</span></label>
                     <input id="max_price" name="max_price" class="input" placeholder="例: 250.0" value="{{ last_used.max_price or '' }}">
                 </div>
 
                 <!-- ステップ幅 -->
                 <div class="row">
-                    <label class="label" for="step_price">ステップ幅：</label>
+                    <label class="label" for="step_price">ステップ幅：<span style="font-size:12px; color:#777; font-weight:normal;">（最低〜最高価格をこの幅で区切って検索します。例：ステップ50なら100〜150、150〜200…と分けて検索）</span></label>
                     <input id="step_price" name="step_price" class="input" placeholder="例: 10.0" value="{{ last_used.step_price or '' }}">
                 </div>
 
