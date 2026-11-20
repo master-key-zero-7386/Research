@@ -240,8 +240,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
         const remarks = document.getElementById("remarks").value.trim();
         const brand = document.getElementById("brand").value.trim();
-        const category = document.getElementById("category").value.trim();
-        const categoryNodeIdManual = document.getElementById("category_node_id_manual").value.trim();
+        const category = (document.getElementById("category")?.value || "").trim();
+        const categoryNodeIdManual = (document.getElementById("category_node_id_manual")?.value || "").trim();
         const minPrice = document.getElementById("min_price").value.trim();
         const maxPrice = document.getElementById("max_price").value.trim();
         const stepPrice = document.getElementById("step_price").value.trim();

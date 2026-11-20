@@ -121,6 +121,7 @@
                     <datalist id="brand_options"></datalist>
                 </div>
 
+                {% if advanced_mode %}
                 <!-- カテゴリー名 -->
                 <div class="row">
                     <label class="label" for="category">カテゴリー名：</label>
@@ -142,6 +143,7 @@
                     <input id="category_node_id_confirm_name" class="input">
                     <button type="button" id="saveCategoryNodeIdBtn" class="btn-blue">この名前で保存</button>
                 </div>
+                {% endif %}
 
                 <!-- 最低価格 -->
                 <div class="row">

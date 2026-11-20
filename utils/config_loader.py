@@ -23,4 +23,12 @@ def get_debug_mode() -> bool:
     except Exception:
         return False
 
-DEBUG_MODE = bool(cfg.get("debug", False))        
+def get_advanced_mode() -> bool:
+    """最新の config.json を確認して advanced_mode フラグを返す（キーが無ければFalse＝簡易UI）"""
+    try:
+        cfg_now = load_config()
+        return bool(cfg_now.get("advanced_mode", False))
+    except Exception:
+        return False
+
+DEBUG_MODE = bool(cfg.get("debug", False))

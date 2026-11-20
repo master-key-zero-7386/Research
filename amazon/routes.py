@@ -19,7 +19,7 @@ from werkzeug.utils import secure_filename
 from bs4 import BeautifulSoup
 from urllib.parse import unquote
 from .constants import BASE_DIR, CONFIG_PATH
-from utils.config_loader import cfg, get_debug_mode
+from utils.config_loader import cfg, get_debug_mode, get_advanced_mode
 from send2trash import send2trash
 from flask import url_for
 import sqlite3
@@ -510,8 +510,9 @@ def index():
         seller_list=seller_list,
         region=region,
         tab=tab,
-        last_used=last_used
-    )    
+        last_used=last_used,
+        advanced_mode=get_advanced_mode()
+    )
 
 # リサーチ
 @amazon_bp.route("/process", methods=["POST"])
