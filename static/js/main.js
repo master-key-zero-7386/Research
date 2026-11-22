@@ -135,9 +135,6 @@ window.addEventListener("DOMContentLoaded", () => {
         if (e.target && e.target.id === "asinExtractBtn") {
             extractASINFromSelected();
         }
-        if (e.target && e.target.id === "brandAggregateBtn") {
-            aggregateBrandsFromSelected();
-        }
     });
 
     // ✅ regionごとの config を取得
@@ -682,55 +679,6 @@ window.addEventListener("DOMContentLoaded", () => {
         })
     }
 
-    // ✅ 自分用：選択したCSVからブランド名一覧＋出品数を集計
-    function aggregateBrandsFromSelected() {
-        const region = document.getElementById("globalRegion").value;
-        const checkboxes = document.querySelectorAll('#asin-file-list input[type="checkbox"]:checked');
-        const selectedFiles = Array.from(checkboxes)
-            .map(cb => cb.value)
-            .filter(v => v && v !== "on");
-
-        if (selectedFiles.length === 0) {
-            alert("集計するCSVファイルを選択してください。");
-            return;
-        }
-
-        const resultEl = document.getElementById("brand-summary-result");
-        if (resultEl) resultEl.textContent = "集計中…";
-
-        fetch("/amazon/aggregate_brands", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ region: region, files: selectedFiles })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (!resultEl) return;
-
-            if (data.status !== "success") {
-                resultEl.textContent = "❌ 集計に失敗しました：" + data.message;
-                return;
-            }
-
-            let html = `<div>保存先: ${data.saved_path}</div>`;
-            html += `<table style="margin-top:6px; border-collapse:collapse;">`;
-            html += `<tr><th style="text-align:left; border-bottom:1px solid #ccc; padding:2px 10px 2px 0;">ブランド</th><th style="text-align:right; border-bottom:1px solid #ccc; padding:2px 0;">出品数</th></tr>`;
-            data.summary.forEach(row => {
-                html += `<tr><td style="padding:2px 10px 2px 0;">${row.brand}</td><td style="text-align:right; padding:2px 0;">${row.count}</td></tr>`;
-            });
-            if (data.unknown_count) {
-                html += `<tr><td style="padding:2px 10px 2px 0; color:#777;">（ブランド不明）</td><td style="text-align:right; padding:2px 0; color:#777;">${data.unknown_count}</td></tr>`;
-            }
-            html += `</table>`;
-
-            resultEl.innerHTML = html;
-        })
-        .catch(err => {
-            console.error("❌ ブランド集計失敗:", err);
-            if (resultEl) resultEl.textContent = "❌ 通信エラー";
-        });
-    }
-
     // ✅ 選択したファイルを専用ごみ箱へ移動（ダウンロード後の削除用）
         document.addEventListener("click", function (e) {
             if (e.target && e.target.id === "asinDeleteBtn") {
@@ -791,12 +739,10 @@ window.addEventListener("DOMContentLoaded", () => {
 
                 // 状態更新（選択数だけで決定）
                 const asinDeleteBtn = document.getElementById("asinDeleteBtn");
-                const brandAggregateBtn = document.getElementById("brandAggregateBtn");
                 const updateExtractBtnState = () => {
                     const anyChecked = container.querySelectorAll('input[type="checkbox"][value]:checked').length > 0;
                     asinExtractBtn.disabled = !anyChecked;
                     if (asinDeleteBtn) asinDeleteBtn.disabled = !anyChecked;
-                    if (brandAggregateBtn) brandAggregateBtn.disabled = !anyChecked;
                 };
 
                 // すべて選択
@@ -1367,5 +1313,116 @@ window.addEventListener("DOMContentLoaded", () => {
     setInterval(pollScrapeStatus, 5000);
 
     document.getElementById("globalRegion")?.addEventListener("change", pollScrapeStatus);
+});
+
+// ✅ 自分用：ジャンル分析（セラーIDだけを入力に、出品ジャンルと件数を調べる）
+function runGenreSummary() {
+    const region = document.getElementById("globalRegion").value.toLowerCase();
+    const manualInput = document.getElementById("manual_seller_id").value.trim();
+    const dropdownValue = document.getElementById("seller_id").value.trim();
+    const sellerId = manualInput || dropdownValue;
+
+    if (!sellerId) {
+        alert("セラーIDを指定してください。");
+        return;
+    }
+
+    fetch("/amazon/run_genre_summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ region, seller_id: sellerId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status !== "success") {
+            alert(data.message || "開始に失敗しました。");
+            return;
+        }
+        pollGenreSummaryStatus();
+    })
+    .catch(err => {
+        console.error("❌ ジャンル分析開始失敗:", err);
+        alert("開始に失敗しました。");
+    });
+}
+
+function renderGenreSummary(data) {
+    const el = document.getElementById("genre-summary-result");
+    const runBtn = document.getElementById("genreSummaryRunBtn");
+    const stopBtn = document.getElementById("genreSummaryStopBtn");
+    if (runBtn) runBtn.disabled = !!data.running;
+    if (stopBtn) stopBtn.disabled = !data.running;
+    if (!el) return;
+
+    if (data.error) {
+        el.innerHTML = `<div style="color:#c0392b;">❌ ${data.error}</div>`;
+        return;
+    }
+
+    const genres = data.genres || [];
+    if (genres.length === 0) {
+        el.textContent = data.running ? "実行中…（結果はまだありません）" : "まだ実行していません";
+        return;
+    }
+
+    let html = "";
+    if (typeof data.total_count === "number") {
+        html += `<div style="margin-bottom:6px;">全体件数（目安）: ${data.total_count.toLocaleString()}件</div>`;
+    }
+    html += `<table style="border-collapse:collapse;">`;
+    html += `<tr><th style="text-align:left; border-bottom:1px solid #ccc; padding:2px 10px 2px 0;">ジャンル</th><th style="text-align:right; border-bottom:1px solid #ccc; padding:2px 0;">件数</th></tr>`;
+    genres.forEach(g => {
+        html += `<tr><td style="padding:2px 10px 2px 0;">${g.name}</td><td style="text-align:right; padding:2px 0;">${g.count}</td></tr>`;
+    });
+    html += `</table>`;
+
+    if (data.running) {
+        html += `<div style="margin-top:6px; color:#888;">実行中…</div>`;
+    } else if (data.stopped_by_user) {
+        html += `<div style="margin-top:6px; color:#c0392b;">ユーザーにより停止されました</div>`;
+    } else if (data.saved_path) {
+        html += `<div style="margin-top:6px;">保存先: ${data.saved_path}</div>`;
+    }
+
+    el.innerHTML = html;
+}
+
+function pollGenreSummaryStatus() {
+    const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase();
+    fetch(`/amazon/genre_summary_status?region=${region}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") renderGenreSummary(data);
+        })
+        .catch(err => console.error("❌ genre_summary_status取得失敗:", err));
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+    const runBtn = document.getElementById("genreSummaryRunBtn");
+    if (runBtn) runBtn.addEventListener("click", runGenreSummary);
+
+    const stopBtn = document.getElementById("genreSummaryStopBtn");
+    if (stopBtn) {
+        stopBtn.addEventListener("click", () => {
+            const region = document.getElementById("globalRegion").value.toLowerCase();
+            if (!confirm("実行中のジャンル分析を停止しますか？")) return;
+            stopBtn.disabled = true;
+            fetch("/amazon/stop_genre_summary", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ region })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status !== "success") alert(data.message || "停止に失敗しました。");
+                pollGenreSummaryStatus();
+            })
+            .catch(() => alert("停止に失敗しました。"));
+        });
+    }
+
+    pollGenreSummaryStatus();
+    setInterval(pollGenreSummaryStatus, 5000);
+    document.getElementById("globalRegion")?.addEventListener("change", pollGenreSummaryStatus);
 });
 

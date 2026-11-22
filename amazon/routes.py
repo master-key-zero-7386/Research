@@ -37,6 +37,9 @@ os.makedirs(TRASH_DIR, exist_ok=True)
 # ✅ 実行中のスクレイピングプロセスを region 単位で追跡する（停止ボタン用）
 running_scrape_processes = {}
 
+# ✅ ジャンル分析（自分用）プロセスを region 単位で追跡する（通常スクレイピングとは別管理）
+running_genre_processes = {}
+
 # ✅ ごみ箱に移動したファイルの「元の場所」を記録する台帳
 TRASH_MANIFEST_PATH = os.path.join(TRASH_DIR, "_manifest.json")
 
@@ -668,6 +671,103 @@ def scrape_status():
         "bands": data.get("bands", [])
     })
 
+
+# ✅ 自分用：セラーIDだけを入力に、そのセラーの出品ジャンル（Department）と
+#    ジャンルごとの件数を調べる「ジャンル分析」機能。全件スクレイピングはせず、
+#    ジャンルごとに検索結果件数を読むだけなので短時間で終わる想定。
+@amazon_bp.route("/run_genre_summary", methods=["POST"])
+def run_genre_summary():
+    data = request.get_json(force=True, silent=True) or {}
+    region = (data.get("region") or "").lower()
+    seller_id = (data.get("seller_id") or "").strip()
+
+    if not region:
+        return jsonify({"status": "error", "message": "regionが指定されていません。"}), 400
+    if not seller_id:
+        return jsonify({"status": "error", "message": "セラーIDが指定されていません。"}), 400
+
+    existing = running_genre_processes.get(region)
+    if existing and existing.poll() is None:
+        return jsonify({"status": "error", "message": "ジャンル分析は既に実行中です。"}), 409
+
+    script_path = os.path.join(os.getcwd(), "amazon", "a_get_seller_genre_summary.py")
+    proc = subprocess.Popen([sys.executable, script_path, seller_id, region])
+    running_genre_processes[region] = proc
+
+    return jsonify({"status": "success", "message": "ジャンル分析を開始しました。"})
+
+
+@amazon_bp.route("/stop_genre_summary", methods=["POST"])
+def stop_genre_summary():
+    data = request.get_json(force=True, silent=True) or {}
+    region = (data.get("region") or "").lower()
+    if not region:
+        return jsonify({"status": "error", "message": "regionが指定されていません"}), 400
+
+    proc = running_genre_processes.get(region)
+    if not proc or proc.poll() is not None:
+        running_genre_processes.pop(region, None)
+        return jsonify({"status": "error", "message": "実行中のプロセスが見つかりません"}), 404
+
+    try:
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+            check=False,
+            capture_output=True
+        )
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    running_genre_processes.pop(region, None)
+
+    try:
+        config = load_config_from_file()
+        log_dir = os.path.join(BASE_DIR, config.get("log_dir", "log"))
+        status_path = os.path.join(log_dir, f"genre_status_{region}.json")
+        if os.path.exists(status_path):
+            with open(status_path, "r", encoding="utf-8") as f:
+                status_data = json.load(f)
+            status_data["running"] = False
+            status_data["stopped_by_user"] = True
+            with open(status_path, "w", encoding="utf-8") as f:
+                json.dump(status_data, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+    return jsonify({"status": "success", "message": "停止しました。"})
+
+
+@amazon_bp.route("/genre_summary_status")
+def genre_summary_status():
+    region = request.args.get("region", "").lower()
+    if not region:
+        return jsonify({"status": "error", "message": "regionが指定されていません"}), 400
+
+    config = load_config_from_file()
+    log_dir = os.path.join(BASE_DIR, config.get("log_dir", "log"))
+    status_path = os.path.join(log_dir, f"genre_status_{region}.json")
+
+    if not os.path.exists(status_path):
+        return jsonify({"status": "success", "running": False, "genres": []})
+
+    try:
+        with open(status_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return jsonify({"status": "success", "running": False, "genres": []})
+
+    return jsonify({
+        "status": "success",
+        "running": data.get("running", False),
+        "stopped_by_user": data.get("stopped_by_user", False),
+        "seller_id": data.get("seller_id", ""),
+        "updated_at": data.get("updated_at", ""),
+        "genres": data.get("genres", []),
+        "total_count": data.get("total_count"),
+        "saved_path": data.get("saved_path"),
+        "error": data.get("error"),
+    })
+
 @amazon_bp.route("/save_config", methods=["POST"])
 def save_config():
     try:
@@ -804,89 +904,6 @@ def extract_asin_list_route():
                 writer.writerow([asin, ""]) 
 
         return jsonify({"status": "success", "message": "ASIN抽出完了", "saved_path": output_path, "original_files": files  })
-
-    except Exception as e:
-        import traceback
-
-        traceback.print_exc()
-        return jsonify({"status": "error", "message": str(e)})
-
-
-# ✅ 自分用：選択したCSV（Brand列あり）からブランド名一覧＋出品数を集計する
-#    商品カードから拾った "Brand" 列をASIN単位で重複排除して集計するだけなので、
-#    新規スクレイピングは行わず既存CSVの後処理として実装している。
-@amazon_bp.route("/aggregate_brands", methods=["POST"])
-def aggregate_brands_route():
-    try:
-        data = request.get_json()
-
-        if not isinstance(data, dict):
-            return jsonify({"status": "error", "message": "リクエストデータが不正です。"})
-
-        region = data.get("region", "").lower()
-        if not region:
-            return jsonify({"status": "error", "message": "regionが指定されていません。"})
-
-        files = data.get("files", [])
-        if not files:
-            return jsonify({"status": "error", "message": "ファイルが指定されていません。"})
-
-        config = load_config_from_file()
-        data_dir = config.get("data_dir", "data")
-        region_dir = os.path.join(data_dir, region)
-
-        frames = []
-        for filename in files:
-            file_path = os.path.join(region_dir, filename)
-            if not os.path.exists(file_path):
-                continue
-            try:
-                df = pd.read_csv(file_path)
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                return jsonify({"status": "error", "message": f"{filename} の読み込みに失敗しました: {str(e)}"})
-
-            if "ASIN" not in df.columns or "Brand" not in df.columns:
-                continue
-            frames.append(df[["ASIN", "Brand"]])
-
-        if not frames:
-            return jsonify({"status": "error", "message": "Brand列を含むCSVが見つかりませんでした。"})
-
-        combined = pd.concat(frames, ignore_index=True)
-        combined["ASIN"] = combined["ASIN"].astype(str)
-        combined = combined.drop_duplicates(subset="ASIN")
-
-        combined["Brand"] = combined["Brand"].fillna("").astype(str).str.strip()
-        unknown_count = int((combined["Brand"] == "").sum())
-
-        known = combined[combined["Brand"] != ""]
-        counts = known.groupby("Brand").size().sort_values(ascending=False)
-
-        summary = [{"brand": brand, "count": int(count)} for brand, count in counts.items()]
-
-        now_jst = datetime.utcnow() + timedelta(hours=9)
-        timestamp = now_jst.strftime("%Y%m%d_%H%M%S")
-        out_filename = f"{region.upper()}_{timestamp}_BRAND_SUMMARY.csv"
-        output_path = os.path.join(region_dir, out_filename)
-
-        with open(output_path, "w", newline="", encoding="utf-8-sig") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Brand", "出品数"])
-            for row in summary:
-                writer.writerow([row["brand"], row["count"]])
-            if unknown_count:
-                writer.writerow(["（ブランド不明）", unknown_count])
-
-        return jsonify({
-            "status": "success",
-            "message": "ブランド集計完了",
-            "saved_path": output_path,
-            "summary": summary,
-            "unknown_count": unknown_count,
-            "total_items": int(len(combined)),
-        })
 
     except Exception as e:
         import traceback

@@ -124,7 +124,7 @@
             <div class="subtab-bar">
                 <button type="button" class="subtab active" data-subtab="detail-settings">詳細設定</button>
                 {% if advanced_mode %}
-                <button type="button" class="subtab advanced-only" data-subtab="brand-list">ブランド一覧</button>
+                <button type="button" class="subtab advanced-only" data-subtab="genre-summary">ジャンル分析</button>
                 {% endif %}
             </div>
 
@@ -217,14 +217,16 @@
             </div><!-- /#detail-settings -->
 
             {% if advanced_mode %}
-            <!-- ブランド一覧：選択したCSVからブランド名一覧＋出品数を集計 -->
-            <div id="brand-list" class="subtab-content advanced-only">
-                <h2 style="font-size:16px; margin-bottom:8px;">ブランド集計</h2>
-                <p style="font-size:12px; color:#777;">※「詳細設定」タブ右側の「保存済みファイル一覧」でチェックしたファイルが集計対象になります。</p>
+            <!-- ジャンル分析：セラーIDだけで、そのセラーが出品してるジャンル（Department）と件数を調べる -->
+            <div id="genre-summary" class="subtab-content advanced-only">
+                <h2 style="font-size:16px; margin-bottom:8px;">ジャンル分析</h2>
+                <p style="font-size:12px; color:#777;">※上の「セラーID」欄で指定したセラーを対象に、ジャンル（Department）ごとの出品件数を調べます。全件スクレイピングはせず、ジャンルごとに検索結果の件数だけを読み取るので数分程度で終わります。</p>
                 <div class="btn-row">
-                    <button id="brandAggregateBtn" class="btn-blue" disabled>選択したファイルからブランド集計</button>
+                    <button id="genreSummaryRunBtn" class="btn-blue">ジャンル分析を実行</button>
+                    <span style="display:inline-block; width:12px;"></span>
+                    <button id="genreSummaryStopBtn" class="btn-blue" style="background-color:#c0392b;" disabled>停　止</button>
                 </div>
-                <div id="brand-summary-result" style="margin-top:10px; font-size:13px;"></div>
+                <div id="genre-summary-result" style="margin-top:10px; font-size:13px;">まだ実行していません</div>
             </div>
             {% endif %}
         </div><!-- /.card（サブタブここまで） -->
