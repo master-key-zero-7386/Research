@@ -120,6 +120,40 @@ body {
 .subtab-content.active {
     display: block;
 }
+
+/* 詳細設定サブタブ内：左（検索条件）60%／右（ASIN抽出・取得状況）40%の横並び */
+.subtab-content.active.split-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.split-col-left {
+    flex: 0 0 60%;
+    max-width: 60%;
+}
+
+.split-col-right {
+    flex: 0 0 40%;
+    max-width: 40%;
+}
+
+@media (max-width: 900px) {
+    .subtab-content.active.split-row {
+        flex-direction: column;
+    }
+    .split-col-left,
+    .split-col-right {
+        max-width: 100%;
+    }
+}
+
+/* ✅ リサーチ／詳細リサーチ モード切替：
+   中身は同一DOM。bodyに.mode-simpleが付くと「配布版相当（advanced-only）」要素を隠すだけ。
+   advanced_mode=falseの配布版はそもそもadvanced-only要素自体を描画しないので対象外。 */
+body.mode-simple .advanced-only {
+    display: none !important;
+}
   
 .global-region {
     display: flex;

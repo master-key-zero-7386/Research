@@ -292,16 +292,6 @@ window.addEventListener("DOMContentLoaded", () => {
                     .catch(() => ({}))
                     .then(err => { throw new Error(err.message || "処理リクエスト失敗"); });
             }
-
-            // ✅ タブ遷移をリロードではなくJSで切り替える
-            document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-            document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-
-            const researchTab = document.querySelector('[data-tab="research"]');
-            if (researchTab) researchTab.classList.add("active");
-
-            const researchContent = document.getElementById("research");
-            if (researchContent) researchContent.classList.add("active");
         })
         .catch(error => {
             console.error("❌ エラー:", error);
@@ -344,21 +334,30 @@ window.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    const tabs = document.querySelectorAll('.tab');
-    const contents = document.querySelectorAll('.tab-content');
+    // ✅ 「リサーチ」「詳細リサーチ」はdiv切替ではなく、同一DOM内の
+    //    advanced-only要素を隠す/見せるモード切替（body.mode-simple）
+    const modeTabs = document.querySelectorAll('.tab[data-mode]');
 
-    tabs.forEach(tab => {
+    modeTabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            const targetId = tab.getAttribute('data-tab');
-            console.log("✅ タブクリック:", targetId);
-            tabs.forEach(t => t.classList.remove('active'));
-            contents.forEach(c => c.classList.remove('active'));
+            const mode = tab.getAttribute('data-mode');
+            modeTabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            document.getElementById(targetId).classList.add('active');
+            document.body.classList.toggle('mode-simple', mode === 'simple');
+
+            // simpleモードに切り替えた時、advanced-onlyなサブタブが選択中なら
+            // 表示できるサブタブ（詳細設定）に戻す
+            if (mode === 'simple') {
+                const activeSubtab = document.querySelector('.subtab.active');
+                if (activeSubtab && activeSubtab.classList.contains('advanced-only')) {
+                    const fallback = document.querySelector('.subtab[data-subtab="detail-settings"]');
+                    if (fallback) fallback.click();
+                }
+            }
         });
     });
 
-    // ✅ 詳細リサーチ内のサブタブ切替（詳細設定／ブランド一覧）
+    // ✅ サブタブ切替（詳細設定／ASIN抽出／ブランド一覧）
     const subtabs = document.querySelectorAll('.subtab');
     const subcontents = document.querySelectorAll('.subtab-content');
 
