@@ -392,7 +392,11 @@ window.addEventListener("DOMContentLoaded", () => {
                 const region = document.getElementById("globalRegion").value.toLowerCase();
 
                 // ✅ fetch直書きを削除して共通関数を呼ぶ
-                get_seller_info(region, selectedSeller);
+                // ✅ get_seller_info()が manual_seller_id 欄を書き換え終わるのを待ってから
+                //    履歴を再取得する（先に呼ぶと、書き換え前の古いセラーIDで検索してしまう）
+                get_seller_info(region, selectedSeller).then(() => {
+                    refreshGenreHistory();
+                });
             });
         }
 
@@ -615,7 +619,9 @@ window.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        document.getElementById("seller_id")?.addEventListener("change", refreshGenreHistory);
+        // ✅ セラープルダウンの履歴更新は上の get_seller_info().then() 側に統一したので、ここでは呼ばない
+        //   （同時に呼ぶと get_seller_info が manual_seller_id を書き換える前に走り、1つ前のセラーの
+        //   　履歴が表示されたままになる競合バグがあった）
         document.getElementById("manual_seller_id")?.addEventListener("change", refreshGenreHistory);
     });
 
