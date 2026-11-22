@@ -598,11 +598,14 @@ window.addEventListener("DOMContentLoaded", () => {
         // 初期表示で DB の last_used=1 を反映させる
         const region = document.querySelector("#globalRegion")?.value || "US";
 
+        // ✅ loadSellerList内のget_seller_info()が完了した後にcallbackが呼ばれるので、
+        //    ここで二重にget_seller_info()を呼び直す必要はない
+        // ✅ updateStoreButtonState()はこことは別スコープ（上のwindow.addEventListener内）で
+        //    定義されており、ここから直接呼ぶとReferenceErrorでPromiseチェーンごと止まり
+        //    refreshGenreHistory()まで実行されなくなるため呼ばない
+        //   （ボタンの有効/無効判定は別スコープ側の初期化処理・change/inputリスナーで行われる）
         loadSellerList(region, () => {
-            get_seller_info(region).then(() => {
-                updateStoreButtonState();   // ✅ ここで呼ぶ
-                refreshGenreHistory();
-            });
+            refreshGenreHistory();
         });
 
         const globalRegionEl = document.getElementById("globalRegion");
@@ -611,10 +614,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 const region = this.value;
 
                 loadSellerList(region, () => {
-                    get_seller_info(region).then(() => {
-                        updateStoreButtonState();   // リージョン切替時も有効化判定
-                        refreshGenreHistory();
-                    });
+                    refreshGenreHistory();
                 });
             });
         }
@@ -841,10 +841,16 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // ✅ セラーID抽出処理：選択したregionに応じてセラーID一覧を取得・プルダウン更新
-    function loadSellerList(region) {
+    //    callbackは get_seller_info() が last_used を反映し終わった後に呼ばれる
+    //   （以前はcallback引数を受け取っておらず、呼び出し側が渡していたcallbackが
+    //     黙って無視されるバグがあり、ジャンル分析履歴がページ読み込み直後には出ず
+    //     5秒おきのポーリングが効くまで表示されない原因になっていた）
+    function loadSellerList(region, callback) {
         refreshSellerDropdown(region).then(() => {
             // ✅ リスト更新後に last_used を反映
-            get_seller_info(region);
+            get_seller_info(region).then(() => {
+                if (typeof callback === "function") callback();
+            });
         });
     }
 

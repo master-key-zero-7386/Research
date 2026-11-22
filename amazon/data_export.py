@@ -72,17 +72,19 @@ def export_data(datasets, regions=None):
     }
 
     if "seller_list" in datasets:
+        # ✅ last_used は「今このPCでどのセラーを選択中か」を示すPCローカルな状態フラグなので
+        #    エクスポート/インポートの対象には含めない（含めると他PCの選択状態を上書きしてしまう）
         conn = get_conn("seller_list.db")
         cur = conn.cursor()
         if upper_regions:
             placeholders = ",".join("?" for _ in upper_regions)
             cur.execute(
-                f"SELECT country_code, seller_id, shop_name, hidden, remarks, last_used "
+                f"SELECT country_code, seller_id, shop_name, hidden, remarks "
                 f"FROM seller_list WHERE country_code IN ({placeholders})",
                 upper_regions,
             )
         else:
-            cur.execute("SELECT country_code, seller_id, shop_name, hidden, remarks, last_used FROM seller_list")
+            cur.execute("SELECT country_code, seller_id, shop_name, hidden, remarks FROM seller_list")
         payload["data"]["seller_list"] = _rows_to_dicts(cur)
         conn.close()
 
@@ -156,18 +158,19 @@ def import_data(payload):
     result = {}
 
     if "seller_list" in data:
+        # ✅ last_used（PCローカルな選択状態フラグ）はUPDATE対象から除外し、
+        #    このPC側で既に選ばれている状態をインポートで壊さないようにする
         conn = get_conn("seller_list.db")
         n = 0
         for row in data["seller_list"]:
             conn.execute(
                 """
-                INSERT INTO seller_list (country_code, seller_id, shop_name, hidden, remarks, last_used)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO seller_list (country_code, seller_id, shop_name, hidden, remarks)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(country_code, seller_id) DO UPDATE SET
                     shop_name = excluded.shop_name,
                     hidden = excluded.hidden,
-                    remarks = excluded.remarks,
-                    last_used = excluded.last_used
+                    remarks = excluded.remarks
                 """,
                 (
                     row.get("country_code", ""),
@@ -175,7 +178,6 @@ def import_data(payload):
                     row.get("shop_name"),
                     row.get("hidden", 0),
                     row.get("remarks"),
-                    row.get("last_used", 0),
                 ),
             )
             n += 1
