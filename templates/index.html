@@ -52,7 +52,8 @@
 
     <!-- ✅ リサーチ／詳細リサーチ共通コンテンツ（モード切替は.mode-simple＋advanced-onlyの表示/非表示のみ） -->
     <div id="research" class="tab-content active">
-        <div class="card">
+        <div class="card split-row">
+        <div class="split-col-left">
             <div class="row">
                 <h2>リサーチツール</h2>
 
@@ -117,7 +118,16 @@
                 <input id="remarks" name="remarks" class="input" placeholder="メモや特記事項などを入力" value="{{ last_used.remarks or '' }}">
             </div>
             </div>
-        </div><!-- /.card（セラー共通ブロックここまで） -->
+        </div><!-- /.split-col-left -->
+
+        {% if advanced_mode %}
+        <!-- ✅ 自分用：選択中のセラーに対する「ジャンル分析」実行履歴（再リサーチ時の目安用） -->
+        <div class="split-col-right advanced-only">
+            <h2 style="font-size:16px; margin-bottom:8px;">ジャンル分析 履歴</h2>
+            <div id="genre-history-panel" style="font-size:13px; max-height:420px; overflow-y:auto;">セラーを選択してください</div>
+        </div>
+        {% endif %}
+        </div><!-- /.card（セラー共通ブロック＋履歴ここまで） -->
 
         <!-- ✅ サブタブ -->
         <div class="card" style="margin-top:16px;">
@@ -128,8 +138,11 @@
                 {% endif %}
             </div>
 
-            <!-- 詳細設定：左＝ブランド・カテゴリー・価格・実行／右＝ASIN抽出・取得状況 -->
-            <div id="detail-settings" class="subtab-content active split-row">
+            <!-- 詳細設定：左＝ブランド・カテゴリー・価格・実行／右＝ASIN抽出・取得状況
+                 ※split-rowは可視性(subtab-content.active)と詳細度が衝突するため、
+                   内側の専用divにだけ付ける -->
+            <div id="detail-settings" class="subtab-content active">
+                <div class="split-row">
                 <div class="split-col-left">
                     <!-- ブランド名 -->
                     <div class="row">
@@ -223,6 +236,7 @@
                         <div id="scrapeStatusList" style="font-size:13px; line-height:1.8;">まだ実行していません</div>
                     </div>
                 </div><!-- /.split-col-right -->
+                </div><!-- /.split-row -->
             </div><!-- /#detail-settings -->
 
             {% if advanced_mode %}

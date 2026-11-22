@@ -24,6 +24,7 @@ from send2trash import send2trash
 from flask import url_for
 import sqlite3
 from amazon.category_master import save_category_node_id
+from amazon.genre_master import get_genre_history
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -797,6 +798,26 @@ def genre_summary_status():
         "saved_path": data.get("saved_path"),
         "error": data.get("error"),
     })
+
+
+# ✅ 自分用：このセラーに対する「ジャンル分析」の実行履歴（実行日ごとの大分類内訳）
+@amazon_bp.route("/get_genre_history")
+def get_genre_history_route():
+    region = request.args.get("region", "").lower()
+    seller_id = request.args.get("seller_id", "").strip()
+
+    if not region:
+        return jsonify({"status": "error", "message": "regionが指定されていません"}), 400
+    if not seller_id:
+        return jsonify({"status": "success", "history": []})
+
+    try:
+        history = get_genre_history(region, seller_id)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    return jsonify({"status": "success", "history": history})
+
 
 @amazon_bp.route("/save_config", methods=["POST"])
 def save_config():

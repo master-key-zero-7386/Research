@@ -55,6 +55,20 @@ GENRE_MASTER_COLUMNS = {
     "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
 }
 
+# ✅ 「ジャンル分析」を実行するたびの結果をセラーID単位で全件残す履歴テーブル。
+#    genre_masterは(marketplace, category_name)で上書きされるnode_id解決専用なので、
+#    「このセラーは過去いつ・どのジャンルを何件持ってたか」を残すにはこちらが必要。
+GENRE_HISTORY_COLUMNS = {
+    "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+    "marketplace": "TEXT NOT NULL",
+    "seller_id": "TEXT NOT NULL",
+    "category_name": "TEXT NOT NULL",
+    "node_id": "TEXT NOT NULL",
+    "item_count": "INTEGER",
+    "run_at": "TEXT NOT NULL",
+    "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+}
+
 
 
 def get_existing_columns(conn, table_name):
@@ -86,6 +100,10 @@ def migrate_table(conn, table_name, schema_dict):
         elif table_name == "genre_master":
             cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
             cur.execute(f"CREATE TABLE genre_master ({cols_def})")
+
+        elif table_name == "genre_history":
+            cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
+            cur.execute(f"CREATE TABLE genre_history ({cols_def})")
 
         else:
             cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
@@ -132,6 +150,14 @@ def migrate_table(conn, table_name, schema_dict):
             ON genre_master(marketplace, category_name)
         """)
 
+    elif table_name == "genre_history":
+        # ✅ 1回の分析ごとに全件残すログなのでUNIQUEにはしない（検索用の通常インデックスのみ）
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS
+            idx_genre_history_seller
+            ON genre_history(marketplace, seller_id, run_at)
+        """)
+
     conn.commit()
 
 def migrate_db(db_name):
@@ -149,6 +175,7 @@ def migrate_db(db_name):
 
     elif base == "genre_master.db":
         migrate_table(conn, "genre_master", GENRE_MASTER_COLUMNS)
+        migrate_table(conn, "genre_history", GENRE_HISTORY_COLUMNS)
 
     conn.close()
     print(f"[OK] migrated: {db_name}")

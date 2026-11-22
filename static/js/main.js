@@ -597,6 +597,7 @@ window.addEventListener("DOMContentLoaded", () => {
         loadSellerList(region, () => {
             get_seller_info(region).then(() => {
                 updateStoreButtonState();   // ✅ ここで呼ぶ
+                refreshGenreHistory();
             });
         });
 
@@ -608,11 +609,15 @@ window.addEventListener("DOMContentLoaded", () => {
                 loadSellerList(region, () => {
                     get_seller_info(region).then(() => {
                         updateStoreButtonState();   // リージョン切替時も有効化判定
+                        refreshGenreHistory();
                     });
                 });
             });
         }
-    });                                                                   
+
+        document.getElementById("seller_id")?.addEventListener("change", refreshGenreHistory);
+        document.getElementById("manual_seller_id")?.addEventListener("change", refreshGenreHistory);
+    });
 
     // ✅ ASIN抽出処理（CSV統合）ボタンの処理
     function extractASINFromSelected() {  
@@ -1414,6 +1419,64 @@ function renderGenreSummary(data) {
     }
 
     el.innerHTML = html;
+
+    // ✅ 分析が完了したら、左側の「ジャンル分析 履歴」パネルも最新化する
+    if (!data.running) {
+        refreshGenreHistory();
+    }
+}
+
+// ✅ 自分用：選択中のセラーに対する「ジャンル分析」実行履歴（セラー情報ブロック右側に表示）
+function getCurrentSellerId() {
+    const manualInput = document.getElementById("manual_seller_id")?.value.trim() || "";
+    const dropdownValue = document.getElementById("seller_id")?.value.trim() || "";
+    return manualInput || dropdownValue;
+}
+
+function renderGenreHistory(history) {
+    const el = document.getElementById("genre-history-panel");
+    if (!el) return;
+
+    if (!history || history.length === 0) {
+        el.textContent = "履歴はまだありません";
+        return;
+    }
+
+    let html = "";
+    history.forEach(run => {
+        html += `<div style="margin-bottom:12px;">`;
+        html += `<div style="font-weight:600; color:#555; margin-bottom:2px;">${run.run_at}</div>`;
+        html += `<table style="border-collapse:collapse; width:100%;">`;
+        run.genres.forEach(g => {
+            html += `<tr><td style="padding:1px 8px 1px 0;">${g.name}</td><td style="text-align:right; padding:1px 0;">${g.count}</td></tr>`;
+        });
+        html += `</table></div>`;
+    });
+
+    el.innerHTML = html;
+}
+
+function loadGenreHistory(region, sellerId) {
+    const el = document.getElementById("genre-history-panel");
+    if (!el) return;
+
+    if (!sellerId) {
+        el.textContent = "セラーを選択してください";
+        return;
+    }
+
+    fetch(`/amazon/get_genre_history?region=${region}&seller_id=${encodeURIComponent(sellerId)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") renderGenreHistory(data.history);
+        })
+        .catch(err => console.error("❌ get_genre_history error:", err));
+}
+
+function refreshGenreHistory() {
+    if (!document.getElementById("genre-history-panel")) return; // 配布版には存在しない
+    const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase();
+    loadGenreHistory(region, getCurrentSellerId());
 }
 
 function pollGenreSummaryStatus() {

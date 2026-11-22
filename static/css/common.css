@@ -121,8 +121,8 @@ body {
     display: block;
 }
 
-/* 詳細設定サブタブ内：左（検索条件）60%／右（ASIN抽出・取得状況）40%の横並び */
-.subtab-content.active.split-row {
+/* 左右分割レイアウト（詳細設定サブタブ内や、セラー情報＋履歴パネルなどで使用） */
+.split-row {
     display: flex;
     gap: 16px;
     align-items: flex-start;

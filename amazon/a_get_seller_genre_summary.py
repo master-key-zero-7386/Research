@@ -26,7 +26,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.config_loader import get_debug_mode
-from amazon.genre_master import save_genre
+from amazon.genre_master import save_genre, save_genre_history
 
 AMAZON_DOMAIN = {
     "au": "www.amazon.com.au",
@@ -271,6 +271,17 @@ try:
 
     now_jst = datetime.utcnow() + timedelta(hours=9)
     timestamp = now_jst.strftime("%Y%m%d_%H%M%S")
+    run_at = now_jst.strftime("%Y-%m-%d %H:%M:%S")
+
+    # ✅ セラー単位の実行履歴として全件残す（再リサーチ時に「このセラーは過去何を
+    #    多く扱ってたか」を振り返れるようにするため）
+    for g in genres:
+        try:
+            save_genre_history(country_code, seller_id, g["name"], g["node_id"], g["count"], run_at)
+        except Exception as e:
+            if get_debug_mode():
+                print(f"▶ [genre] genre_history保存失敗: {g['name']!r} ({e})")
+
     filename = f"{country_code.upper()}_{timestamp}_{seller_id}_GENRE_SUMMARY.csv"
     csv_path = os.path.join(output_folder, filename)
 
