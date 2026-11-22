@@ -43,6 +43,18 @@ CATEGORY_MASTER_COLUMNS = {
     "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
 }
 
+# ✅ 「ジャンル分析」が自動検出した大分類（Department）専用。
+#    手動で登録するcategory_masterとは別管理にして混ざらないようにする。
+GENRE_MASTER_COLUMNS = {
+    "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+    "marketplace": "TEXT NOT NULL",
+    "category_name": "TEXT NOT NULL",
+    "node_id": "TEXT NOT NULL",
+    "item_count": "INTEGER",
+    "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+}
+
 
 
 def get_existing_columns(conn, table_name):
@@ -70,6 +82,10 @@ def migrate_table(conn, table_name, schema_dict):
         elif table_name == "category_master":
             cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
             cur.execute(f"CREATE TABLE category_master ({cols_def})")
+
+        elif table_name == "genre_master":
+            cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
+            cur.execute(f"CREATE TABLE genre_master ({cols_def})")
 
         else:
             cols_def = ", ".join([f"{col} {dtype}" for col, dtype in schema_dict.items()])
@@ -109,6 +125,13 @@ def migrate_table(conn, table_name, schema_dict):
             ON category_master(marketplace, category_name)
         """)
 
+    elif table_name == "genre_master":
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS
+            idx_genre_marketplace_unique
+            ON genre_master(marketplace, category_name)
+        """)
+
     conn.commit()
 
 def migrate_db(db_name):
@@ -124,6 +147,9 @@ def migrate_db(db_name):
     elif base == "category_master.db":
         migrate_table(conn, "category_master", CATEGORY_MASTER_COLUMNS)
 
+    elif base == "genre_master.db":
+        migrate_table(conn, "genre_master", GENRE_MASTER_COLUMNS)
+
     conn.close()
     print(f"[OK] migrated: {db_name}")
 
@@ -134,6 +160,7 @@ def main():
     migrate_db("seller_list.db")
     migrate_db("brand_master.db")
     migrate_db("category_master.db")
+    migrate_db("genre_master.db")
 
 if __name__ == "__main__":
     main()

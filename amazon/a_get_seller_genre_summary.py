@@ -26,7 +26,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.config_loader import get_debug_mode
-from amazon.category_master import save_category_node_id
+from amazon.genre_master import save_genre
 
 AMAZON_DOMAIN = {
     "au": "www.amazon.com.au",
@@ -82,6 +82,58 @@ def write_status(running, genres=None, total_count=None, saved_path=None, error=
             }, f, ensure_ascii=False)
     except Exception:
         pass
+
+
+def show_deliver_to_confirmation(driver):
+    """Deliver to（配送先）が正しい国になっているか確認してもらうバナー。
+    これを確認せずに進めると表示される商品がずれる（別マーケットプレイス向けの
+    在庫・価格で表示される等）ため、a_get_seller_items.py と同様に必ず挟む。"""
+    banner_script = """
+    var banner = document.createElement('div');
+    banner.id = 'rt_confirm_banner';
+    banner.style.position = 'fixed';
+    banner.style.bottom = '0';
+    banner.style.left = '0';
+    banner.style.width = '100%%';
+    banner.style.zIndex = '999999';
+    banner.style.background = '#ffcc00';
+    banner.style.color = '#000';
+    banner.style.fontSize = '18px';
+    banner.style.padding = '16px';
+    banner.style.textAlign = 'center';
+    banner.style.boxShadow = '0 -2px 8px rgba(0,0,0,0.3)';
+    banner.innerHTML = '配送先(Deliver to)が販売予定の国になっているか確認してください。<br>確認できたら「OK」を押してください' +
+        '<br><button id="rt_ok_btn" style="margin-top:8px;padding:8px 24px;font-size:16px;">OK</button>' +
+        '<button id="rt_cancel_btn" style="margin-top:8px;margin-left:12px;padding:8px 24px;font-size:16px;">キャンセル</button>';
+    document.body.appendChild(banner);
+
+    document.getElementById('rt_ok_btn').onclick = function() {
+        window.__rt_confirmed = true;
+        banner.remove();
+    };
+    document.getElementById('rt_cancel_btn').onclick = function() {
+        window.__rt_cancelled = true;
+        banner.remove();
+    };
+    window.__rt_confirmed = false;
+    window.__rt_cancelled = false;
+    """
+
+    driver.execute_script(banner_script)
+
+    while True:
+        confirmed = driver.execute_script("return window.__rt_confirmed;")
+        cancelled = driver.execute_script("return window.__rt_cancelled;")
+        if confirmed or cancelled:
+            break
+        time.sleep(0.5)
+
+    driver.execute_script("""
+        var b = document.getElementById('rt_confirm_banner');
+        if (b) b.remove();
+    """)
+
+    return not cancelled
 
 
 def _save_debug_screenshot(driver, tag):
@@ -172,17 +224,14 @@ try:
     driver.get(base_url)
     time.sleep(2)
 
+    proceed = show_deliver_to_confirmation(driver)
+    if not proceed:
+        write_status(running=False, error="ユーザーがキャンセルを押したため処理を中止しました。")
+        driver.quit()
+        sys.exit(0)
+
     total_count = parse_result_count(driver)
     departments = collect_departments(driver)
-
-    # ✅ ついでに発見したジャンル名→node_idをcategory_master.dbにも保存しておく。
-    #    「詳細設定」タブのカテゴリー名欄が、ライブ探索なしでこのnode_idを再利用できるようになる。
-    for dept in departments:
-        try:
-            save_category_node_id(country_code, dept["name"], dept["node_id"])
-        except Exception as e:
-            if get_debug_mode():
-                print(f"▶ [genre] category_master保存失敗: {dept['name']!r} ({e})")
 
     if not departments:
         _save_debug_screenshot(driver, "no_departments")
@@ -206,6 +255,15 @@ try:
             "node_id": dept["node_id"],
             "count": count if count is not None else 0,
         })
+
+        # ✅ genre_master.db（category_masterとは別DB）に保存しておく。
+        #    「詳細設定」タブの「カテゴリー（大分類）」欄が、ライブ探索なしでこのnode_idを再利用できるようになる。
+        try:
+            save_genre(country_code, dept["name"], dept["node_id"], count)
+        except Exception as e:
+            if get_debug_mode():
+                print(f"▶ [genre] genre_master保存失敗: {dept['name']!r} ({e})")
+
         # ✅ 途中経過を画面に反映できるよう、1件集計するごとに状態ファイルを更新
         write_status(running=True, genres=sorted(genres, key=lambda g: g["count"], reverse=True), total_count=total_count)
 

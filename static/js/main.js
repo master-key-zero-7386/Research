@@ -26,6 +26,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 loadSellerList(region);
                 loadCategoryList(region);
                 loadBrandList(region);
+                loadGenreCategoryList(region);
                 updateStoreButtonState();
             });
 
@@ -34,6 +35,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 loadSellerList(globalRegionEl.value);
                 loadCategoryList(globalRegionEl.value);
                 loadBrandList(globalRegionEl.value);
+                loadGenreCategoryList(globalRegionEl.value);
                 updateStoreButtonState();
             }
         }
@@ -42,6 +44,14 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("manual_seller_id").addEventListener("input", updateStoreButtonState);
 
     updateStoreButtonState();
+
+    // ✅ 「カテゴリー（大分類）」を選ぶと、カテゴリーノードID欄に自動で入力する
+    document.getElementById("genre_category_select")?.addEventListener("change", function () {
+        const nodeIdInput = document.getElementById("category_node_id_manual");
+        if (nodeIdInput && this.value) {
+            nodeIdInput.value = this.value;
+        }
+    });
 
     // ✅ カテゴリーノードIDの手動指定を確認する（この時点ではまだ保存しない）
     function verifyCategoryNodeId() {
@@ -859,6 +869,25 @@ window.addEventListener("DOMContentLoaded", () => {
                 });
             })
             .catch(err => console.error("❌ get_brand_list error:", err));
+    }
+
+    // ✅ カテゴリー（大分類）候補：ジャンル分析が自動検出した大分類一覧を取得・プルダウン更新
+    //    選択するとカテゴリーノードID欄に自動で入力される（category_masterとは別のgenre_master.db）
+    function loadGenreCategoryList(region) {
+        fetch(`/amazon/get_genre_list?region=${region}`)
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById("genre_category_select");
+                if (!select) return;
+                select.innerHTML = '<option value="">-- ジャンル分析で検出した大分類から選択（任意） --</option>';
+                (data.genre_list || []).forEach(genre => {
+                    const opt = document.createElement("option");
+                    opt.value = genre.node_id;
+                    opt.textContent = genre.name;
+                    select.appendChild(opt);
+                });
+            })
+            .catch(err => console.error("❌ get_genre_list error:", err));
     }
 
     // ✅ ファイル一覧を読み込んで表示する関数（チェックボックス付き）

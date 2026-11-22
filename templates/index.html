@@ -140,6 +140,15 @@
 
                     {% if advanced_mode %}
                     <div class="advanced-only">
+                        <!-- カテゴリー（大分類）：ジャンル分析が自動検出した大分類から選ぶと、
+                             下のカテゴリーノードID欄に自動で入力される（category_masterとは別管理） -->
+                        <div class="row">
+                            <label class="label" for="genre_category_select">カテゴリー（大分類）：</label>
+                            <select id="genre_category_select" class="select">
+                                <option value="">-- ジャンル分析で検出した大分類から選択（任意） --</option>
+                            </select>
+                        </div>
+
                         <!-- カテゴリー名 -->
                         <div class="row">
                             <label class="label" for="category">カテゴリー名：</label>

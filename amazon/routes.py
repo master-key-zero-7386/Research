@@ -321,6 +321,36 @@ def get_category_list():
 
     return jsonify({"category_list": category_list})
 
+# ✅ 自分用：「ジャンル分析」が自動検出した大分類一覧（category_masterとは別DB）
+@amazon_bp.route("/get_genre_list")
+def get_genre_list():
+    region = request.args.get("region", "").lower()
+    if not region:
+        return jsonify({"status": "error", "message": "region is required"}), 400
+
+    db_path = os.path.join(BASE_DIR, "db", "genre_master.db")
+    if not os.path.exists(db_path):
+        return jsonify({"genre_list": []})
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT category_name, node_id
+            FROM genre_master
+            WHERE marketplace = ?
+            ORDER BY category_name COLLATE NOCASE ASC
+            """,
+            (region,)
+        )
+        genre_list = [{"name": row[0], "node_id": row[1]} for row in cursor.fetchall()]
+        conn.close()
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    return jsonify({"genre_list": genre_list})
+
 _LOOKUP_DOMAIN = {
     "au": "amazon.com.au",
     "us": "amazon.com",
