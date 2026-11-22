@@ -68,46 +68,57 @@ body {
 }
 
 .tab-content {
-    margin-top: 0 !important; 
+    margin-top: 0 !important;
     padding-top: 0 !important;
-    display: block;
+    display: none;
     background: linear-gradient(to bottom, #e8f0f9, #f2f7fb);
     border: 1px solid #ccc;
-    padding: 8px; 
-    margin-top: 0 !important; 
+    padding: 8px;
+    margin-top: 0 !important;
     border-radius: 0 0 15px 15px;
 }
 
-/* ✅ リサーチ(左60%)とオプション(右40%)を横並びにする */
 .tool-layout {
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
-}
-
-.tool-layout #research {
-    flex: 0 0 60%;
-    max-width: 60%;
-}
-
-.tool-layout #option {
-    flex: 0 0 40%;
-    max-width: 40%;
-}
-
-/* 画面が狭い場合は縦積みに戻す（スマホ等での崩れ防止） */
-@media (max-width: 900px) {
-    .tool-layout {
-        flex-direction: column;
-    }
-    .tool-layout #research,
-    .tool-layout #option {
-        max-width: 100%;
-    }
+    display: block;
 }
 
 .tab-content.active {
   display: block;
+}
+
+/* サブタブ（詳細リサーチ内：詳細設定／ASIN抽出／ブランド一覧 の切替） */
+.subtab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #ccc;
+}
+
+.subtab {
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: #333;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+}
+
+.subtab:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.subtab.active {
+    border-bottom: 2px solid #2948fc;
+    color: #2948fc;
+}
+
+.subtab-content {
+    display: none;
+}
+
+.subtab-content.active {
+    display: block;
 }
   
 .global-region {

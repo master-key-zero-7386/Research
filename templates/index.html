@@ -35,14 +35,15 @@
                 </select>
             </div>            
 
-            <!-- ✅ 1画面構成にしたためタブボタンは非表示（内部処理には影響なし） -->
-            <button class="tab active" data-tab="research" style="display:none;">リサーチ</button>
-            <button class="tab" data-tab="option" style="display:none;">オプション</button>
+            <!-- ✅ タブ切替（詳細リサーチは自分用：advanced_modeがtrueの時だけ表示） -->
+            <button class="tab active" data-tab="research">リサーチ</button>
+            {% if advanced_mode %}
+            <button class="tab" data-tab="detail">詳細リサーチ</button>
+            {% endif %}
 
         </div>
     </div>
-        
-    <!-- ✅ ここから左右分割レイアウト -->
+
     <div class="tool-layout">
 
     <!-- ✅ リサーチ -->
@@ -121,30 +122,6 @@
                     <datalist id="brand_options"></datalist>
                 </div>
 
-                {% if advanced_mode %}
-                <!-- カテゴリー名 -->
-                <div class="row">
-                    <label class="label" for="category">カテゴリー名：</label>
-                    <input id="category" name="category_query" class="input" list="category_options" autocomplete="off" placeholder="例：Toys & Games" value="{{ last_used.category or '' }}">
-                    <datalist id="category_options"></datalist>
-                </div>
-
-                <!-- カテゴリーノードID（手動指定） -->
-                <div class="row">
-                    <label class="label" for="category_node_id_manual">カテゴリーノードID（任意・手動指定）：</label>
-                    <input id="category_node_id_manual" name="category_node_id_manual" class="input" placeholder="例：637394（AmazonのURLのnode=の数字。自動検出できない時だけ入力）" value="{{ last_used.category_node_id_manual or '' }}">
-                    <button type="button" id="verifyCategoryNodeIdBtn" class="btn-blue">確認</button>
-                    <span id="category_node_id_verify_result" style="margin-left:8px;"></span>
-                </div>
-
-                <!-- カテゴリーノードID確認後の名前確定欄（確認ボタン後にのみ表示） -->
-                <div class="row" id="category_node_id_confirm_row" style="display:none;">
-                    <label class="label" for="category_node_id_confirm_name">↑この名前で保存しますか？（必要なら修正してください）：</label>
-                    <input id="category_node_id_confirm_name" class="input">
-                    <button type="button" id="saveCategoryNodeIdBtn" class="btn-blue">この名前で保存</button>
-                </div>
-                {% endif %}
-
                 <!-- 最低価格 -->
                 <div class="row">
                     <label class="label" for="min_price">最低価格：</label>
@@ -174,16 +151,11 @@
                 </div>
             </div><!-- /.card -->
         </div><!-- /.card -->
-    </div><!-- /#research --><!-- /.grid -->
 
+        <!-- ✅ ASIN抽出：保存済みファイル一覧（チェック付き）※配布版でも利用可 -->
+        <div class="card" style="margin-top:16px;">
+            <h2>保存済みファイル一覧（ASIN抽出用）</h2>
 
-    <!-- ✅ オプションタブ -->
-    <div id="option" class="tab-content {% if tab == 'seller_id_extractor' %}active{% endif %}">
-        <div class="card">
-            <!-- 1. ASIN抽出：保存済みファイル一覧（チェック付き） -->
-            <h2>保存済みファイル一覧（ASIN抽出用）</h2> 
-
-            <!-- マーケットプレイス選択 -->
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                 <div class="btn-row">
                     <button onclick="loadAsinFileList(document.getElementById('globalRegion').value)" class="btn-blue" style="margin-left:20px;">読　込</button>
@@ -196,12 +168,60 @@
             <div id="asin-file-list"></div>
         </div>    <!-- ASIN抽出用ファイル一覧ここまで -->
 
-        <!-- ✅ 価格帯ごとの取得状況（20ページ上限で頭打ちになった価格帯の確認用） -->
+        <!-- ✅ 価格帯ごとの取得状況（20ページ上限で頭打ちになった価格帯の確認用）※配布版でも利用可 -->
         <div class="card" id="scrapeStatusCard" style="margin-top:16px;">
             <h2 style="font-size:16px; margin-bottom:8px;">価格帯ごとの取得状況</h2>
             <div id="scrapeStatusList" style="font-size:13px; line-height:1.8;">まだ実行していません</div>
         </div>
-    </div> <!-- ✅ option タブの閉じタグ -->
+    </div><!-- /#research -->
+
+    {% if advanced_mode %}
+    <!-- ✅ 詳細リサーチ（自分用：カテゴリー絞り込み設定／ブランド一覧集計） -->
+    <div id="detail" class="tab-content">
+        <div class="card">
+            <div class="subtab-bar">
+                <button type="button" class="subtab active" data-subtab="detail-settings">詳細設定</button>
+                <button type="button" class="subtab" data-subtab="brand-list">ブランド一覧</button>
+            </div>
+
+            <!-- 詳細設定：カテゴリー絞り込み -->
+            <div id="detail-settings" class="subtab-content active">
+                <!-- カテゴリー名 -->
+                <div class="row">
+                    <label class="label" for="category">カテゴリー名：</label>
+                    <input id="category" name="category_query" class="input" list="category_options" autocomplete="off" placeholder="例：Toys & Games" value="{{ last_used.category or '' }}">
+                    <datalist id="category_options"></datalist>
+                </div>
+
+                <!-- カテゴリーノードID（手動指定） -->
+                <div class="row">
+                    <label class="label" for="category_node_id_manual">カテゴリーノードID（任意・手動指定）：</label>
+                    <input id="category_node_id_manual" name="category_node_id_manual" class="input" placeholder="例：637394（AmazonのURLのnode=の数字。自動検出できない時だけ入力）" value="{{ last_used.category_node_id_manual or '' }}">
+                    <button type="button" id="verifyCategoryNodeIdBtn" class="btn-blue">確認</button>
+                    <span id="category_node_id_verify_result" style="margin-left:8px;"></span>
+                </div>
+
+                <!-- カテゴリーノードID確認後の名前確定欄（確認ボタン後にのみ表示） -->
+                <div class="row" id="category_node_id_confirm_row" style="display:none;">
+                    <label class="label" for="category_node_id_confirm_name">↑この名前で保存しますか？（必要なら修正してください）：</label>
+                    <input id="category_node_id_confirm_name" class="input">
+                    <button type="button" id="saveCategoryNodeIdBtn" class="btn-blue">この名前で保存</button>
+                </div>
+                <p style="font-size:12px; color:#777;">※ここで設定した内容は「リサーチ」タブの実行ボタンに反映されます。</p>
+            </div>
+
+            <!-- ブランド一覧：選択したCSVからブランド名一覧＋出品数を集計 -->
+            <div id="brand-list" class="subtab-content">
+                <h2 style="font-size:16px; margin-bottom:8px;">ブランド集計</h2>
+                <p style="font-size:12px; color:#777;">※「リサーチ」タブの「保存済みファイル一覧（ASIN抽出用）」でチェックしたファイルが集計対象になります。</p>
+                <div class="btn-row">
+                    <button id="brandAggregateBtn" class="btn-blue" disabled>選択したファイルからブランド集計</button>
+                </div>
+                <div id="brand-summary-result" style="margin-top:10px; font-size:13px;"></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     </div> <!-- ✅ tool-layout 閉じタグ -->
  
 

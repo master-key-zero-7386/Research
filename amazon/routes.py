@@ -811,6 +811,90 @@ def extract_asin_list_route():
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)})
 
+
+# ✅ 自分用：選択したCSV（Brand列あり）からブランド名一覧＋出品数を集計する
+#    商品カードから拾った "Brand" 列をASIN単位で重複排除して集計するだけなので、
+#    新規スクレイピングは行わず既存CSVの後処理として実装している。
+@amazon_bp.route("/aggregate_brands", methods=["POST"])
+def aggregate_brands_route():
+    try:
+        data = request.get_json()
+
+        if not isinstance(data, dict):
+            return jsonify({"status": "error", "message": "リクエストデータが不正です。"})
+
+        region = data.get("region", "").lower()
+        if not region:
+            return jsonify({"status": "error", "message": "regionが指定されていません。"})
+
+        files = data.get("files", [])
+        if not files:
+            return jsonify({"status": "error", "message": "ファイルが指定されていません。"})
+
+        config = load_config_from_file()
+        data_dir = config.get("data_dir", "data")
+        region_dir = os.path.join(data_dir, region)
+
+        frames = []
+        for filename in files:
+            file_path = os.path.join(region_dir, filename)
+            if not os.path.exists(file_path):
+                continue
+            try:
+                df = pd.read_csv(file_path)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                return jsonify({"status": "error", "message": f"{filename} の読み込みに失敗しました: {str(e)}"})
+
+            if "ASIN" not in df.columns or "Brand" not in df.columns:
+                continue
+            frames.append(df[["ASIN", "Brand"]])
+
+        if not frames:
+            return jsonify({"status": "error", "message": "Brand列を含むCSVが見つかりませんでした。"})
+
+        combined = pd.concat(frames, ignore_index=True)
+        combined["ASIN"] = combined["ASIN"].astype(str)
+        combined = combined.drop_duplicates(subset="ASIN")
+
+        combined["Brand"] = combined["Brand"].fillna("").astype(str).str.strip()
+        unknown_count = int((combined["Brand"] == "").sum())
+
+        known = combined[combined["Brand"] != ""]
+        counts = known.groupby("Brand").size().sort_values(ascending=False)
+
+        summary = [{"brand": brand, "count": int(count)} for brand, count in counts.items()]
+
+        now_jst = datetime.utcnow() + timedelta(hours=9)
+        timestamp = now_jst.strftime("%Y%m%d_%H%M%S")
+        out_filename = f"{region.upper()}_{timestamp}_BRAND_SUMMARY.csv"
+        output_path = os.path.join(region_dir, out_filename)
+
+        with open(output_path, "w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Brand", "出品数"])
+            for row in summary:
+                writer.writerow([row["brand"], row["count"]])
+            if unknown_count:
+                writer.writerow(["（ブランド不明）", unknown_count])
+
+        return jsonify({
+            "status": "success",
+            "message": "ブランド集計完了",
+            "saved_path": output_path,
+            "summary": summary,
+            "unknown_count": unknown_count,
+            "total_items": int(len(combined)),
+        })
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)})
+
+
 @amazon_bp.route("/move_to_trash", methods=["POST"])
 def move_to_trash():
     data = request.get_json()

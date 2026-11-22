@@ -135,6 +135,9 @@ window.addEventListener("DOMContentLoaded", () => {
         if (e.target && e.target.id === "asinExtractBtn") {
             extractASINFromSelected();
         }
+        if (e.target && e.target.id === "brandAggregateBtn") {
+            aggregateBrandsFromSelected();
+        }
     });
 
     // ✅ regionごとの config を取得
@@ -347,10 +350,24 @@ window.addEventListener("DOMContentLoaded", () => {
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             const targetId = tab.getAttribute('data-tab');
-            console.log("✅ タブクリック:", targetId); 
+            console.log("✅ タブクリック:", targetId);
             tabs.forEach(t => t.classList.remove('active'));
             contents.forEach(c => c.classList.remove('active'));
             tab.classList.add('active');
+            document.getElementById(targetId).classList.add('active');
+        });
+    });
+
+    // ✅ 詳細リサーチ内のサブタブ切替（詳細設定／ブランド一覧）
+    const subtabs = document.querySelectorAll('.subtab');
+    const subcontents = document.querySelectorAll('.subtab-content');
+
+    subtabs.forEach(subtab => {
+        subtab.addEventListener('click', () => {
+            const targetId = subtab.getAttribute('data-subtab');
+            subtabs.forEach(t => t.classList.remove('active'));
+            subcontents.forEach(c => c.classList.remove('active'));
+            subtab.classList.add('active');
             document.getElementById(targetId).classList.add('active');
         });
     });
@@ -666,6 +683,55 @@ window.addEventListener("DOMContentLoaded", () => {
         })
     }
 
+    // ✅ 自分用：選択したCSVからブランド名一覧＋出品数を集計
+    function aggregateBrandsFromSelected() {
+        const region = document.getElementById("globalRegion").value;
+        const checkboxes = document.querySelectorAll('#asin-file-list input[type="checkbox"]:checked');
+        const selectedFiles = Array.from(checkboxes)
+            .map(cb => cb.value)
+            .filter(v => v && v !== "on");
+
+        if (selectedFiles.length === 0) {
+            alert("集計するCSVファイルを選択してください。");
+            return;
+        }
+
+        const resultEl = document.getElementById("brand-summary-result");
+        if (resultEl) resultEl.textContent = "集計中…";
+
+        fetch("/amazon/aggregate_brands", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ region: region, files: selectedFiles })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!resultEl) return;
+
+            if (data.status !== "success") {
+                resultEl.textContent = "❌ 集計に失敗しました：" + data.message;
+                return;
+            }
+
+            let html = `<div>保存先: ${data.saved_path}</div>`;
+            html += `<table style="margin-top:6px; border-collapse:collapse;">`;
+            html += `<tr><th style="text-align:left; border-bottom:1px solid #ccc; padding:2px 10px 2px 0;">ブランド</th><th style="text-align:right; border-bottom:1px solid #ccc; padding:2px 0;">出品数</th></tr>`;
+            data.summary.forEach(row => {
+                html += `<tr><td style="padding:2px 10px 2px 0;">${row.brand}</td><td style="text-align:right; padding:2px 0;">${row.count}</td></tr>`;
+            });
+            if (data.unknown_count) {
+                html += `<tr><td style="padding:2px 10px 2px 0; color:#777;">（ブランド不明）</td><td style="text-align:right; padding:2px 0; color:#777;">${data.unknown_count}</td></tr>`;
+            }
+            html += `</table>`;
+
+            resultEl.innerHTML = html;
+        })
+        .catch(err => {
+            console.error("❌ ブランド集計失敗:", err);
+            if (resultEl) resultEl.textContent = "❌ 通信エラー";
+        });
+    }
+
     // ✅ 選択したファイルを専用ごみ箱へ移動（ダウンロード後の削除用）
         document.addEventListener("click", function (e) {
             if (e.target && e.target.id === "asinDeleteBtn") {
@@ -726,10 +792,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
                 // 状態更新（選択数だけで決定）
                 const asinDeleteBtn = document.getElementById("asinDeleteBtn");
+                const brandAggregateBtn = document.getElementById("brandAggregateBtn");
                 const updateExtractBtnState = () => {
                     const anyChecked = container.querySelectorAll('input[type="checkbox"][value]:checked').length > 0;
                     asinExtractBtn.disabled = !anyChecked;
                     if (asinDeleteBtn) asinDeleteBtn.disabled = !anyChecked;
+                    if (brandAggregateBtn) brandAggregateBtn.disabled = !anyChecked;
                 };
 
                 // すべて選択
