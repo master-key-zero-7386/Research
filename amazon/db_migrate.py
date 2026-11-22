@@ -157,6 +157,13 @@ def migrate_table(conn, table_name, schema_dict):
             idx_genre_history_seller
             ON genre_history(marketplace, seller_id, run_at)
         """)
+        # ✅ エクスポート/インポート（data_export.py）で同じ履歴ファイルを再取り込みしても
+        #    重複登録しないようにするためのUNIQUE INDEX（INSERT OR IGNOREの対象）
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS
+            idx_genre_history_unique
+            ON genre_history(marketplace, seller_id, category_name, node_id, run_at)
+        """)
 
     conn.commit()
 

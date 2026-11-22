@@ -2,6 +2,7 @@
 
 import os
 import sys
+import io
 import csv
 import json
 import math
@@ -25,6 +26,7 @@ from flask import url_for
 import sqlite3
 from amazon.category_master import save_category_node_id
 from amazon.genre_master import get_genre_history
+from amazon.data_export import get_counts as get_data_io_counts, export_data as build_export_payload, import_data as apply_import_payload
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -817,6 +819,60 @@ def get_genre_history_route():
         return jsonify({"status": "error", "message": str(e)}), 500
 
     return jsonify({"status": "success", "history": history})
+
+
+# ✅ データのエクスポート/インポート（バックアップ・他PCへのデータ移行用）
+def _parse_regions_param():
+    raw = request.args.get("regions", "")
+    return [r.strip().upper() for r in raw.split(",") if r.strip()]
+
+
+@amazon_bp.route("/data_io_summary")
+def data_io_summary():
+    regions = _parse_regions_param()
+    counts = get_data_io_counts(regions)
+    return jsonify({"status": "success", "counts": counts})
+
+
+@amazon_bp.route("/export_data")
+def export_data_route():
+    datasets_raw = request.args.get("datasets", "")
+    datasets = [d.strip() for d in datasets_raw.split(",") if d.strip()]
+    regions = _parse_regions_param()
+
+    if not datasets:
+        return jsonify({"status": "error", "message": "対象データが選択されていません"}), 400
+
+    payload = build_export_payload(datasets, regions)
+
+    buf = io.BytesIO(json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8"))
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    return send_file(
+        buf,
+        mimetype="application/json",
+        as_attachment=True,
+        download_name=f"research_tool_export_{timestamp}.json",
+    )
+
+
+@amazon_bp.route("/import_data", methods=["POST"])
+def import_data_route():
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"status": "error", "message": "ファイルが選択されていません"}), 400
+
+    try:
+        payload = json.load(file.stream)
+    except Exception:
+        return jsonify({"status": "error", "message": "ファイルの読み込みに失敗しました（JSON形式ではありません）"}), 400
+
+    try:
+        result = apply_import_payload(payload)
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"インポートに失敗しました: {e}"}), 400
+
+    return jsonify({"status": "success", "result": result})
 
 
 @amazon_bp.route("/save_config", methods=["POST"])

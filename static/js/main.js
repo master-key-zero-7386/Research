@@ -1518,3 +1518,129 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("globalRegion")?.addEventListener("change", pollGenreSummaryStatus);
 });
 
+// ✅ データのエクスポート/インポート（バックアップ・他PCへの移行用）
+function getSelectedDataIORegions() {
+    return Array.from(document.querySelectorAll(".dataio-region:checked")).map(el => el.value);
+}
+
+function getSelectedDataIODatasets() {
+    // offsetParent !== null で「配布版 or 簡易モードで非表示」のチェックボックスは対象から除外する
+    return Array.from(document.querySelectorAll(".dataio-dataset"))
+        .filter(el => el.checked && el.offsetParent !== null)
+        .map(el => el.value);
+}
+
+function refreshDataIOCounts() {
+    const regions = getSelectedDataIORegions();
+    const params = regions.length ? `?regions=${regions.join(",")}` : "";
+
+    fetch(`/amazon/data_io_summary${params}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status !== "success") return;
+            const counts = data.counts || {};
+            document.querySelectorAll(".dataio-count").forEach(span => {
+                const key = span.dataset.key;
+                if (key === "genre_master") {
+                    span.textContent = `（大分類${counts.genre_master ?? 0}件／履歴${counts.genre_history ?? 0}件）`;
+                } else if (key in counts) {
+                    span.textContent = `（${counts[key]}件）`;
+                }
+            });
+        })
+        .catch(err => console.error("❌ data_io_summary取得失敗:", err));
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById("dataIOModal");
+    const openBtn = document.getElementById("dataIOOpenBtn");
+    const closeBtn = document.getElementById("dataIOCloseBtn");
+    const exportBtn = document.getElementById("dataIOExportBtn");
+    const importBtn = document.getElementById("dataIOImportBtn");
+    const importFile = document.getElementById("dataIOImportFile");
+    const resultEl = document.getElementById("dataIOResult");
+
+    if (!modal || !openBtn) return;
+
+    openBtn.addEventListener("click", () => {
+        resultEl.textContent = "";
+        modal.style.display = "flex";
+        refreshDataIOCounts();
+    });
+
+    closeBtn.addEventListener("click", () => {
+        modal.style.display = "none";
+    });
+
+    document.querySelectorAll(".dataio-region").forEach(cb => {
+        cb.addEventListener("change", refreshDataIOCounts);
+    });
+
+    exportBtn.addEventListener("click", () => {
+        const datasets = getSelectedDataIODatasets();
+        const regions = getSelectedDataIORegions();
+
+        if (datasets.length === 0) {
+            alert("エクスポートするデータを選択してください。");
+            return;
+        }
+
+        const params = new URLSearchParams();
+        params.set("datasets", datasets.join(","));
+        if (regions.length) params.set("regions", regions.join(","));
+
+        window.location.href = `/amazon/export_data?${params.toString()}`;
+    });
+
+    importBtn.addEventListener("click", () => {
+        const file = importFile.files[0];
+        if (!file) {
+            alert("インポートするファイルを選択してください。");
+            return;
+        }
+        if (!confirm("インポートすると、同じキー（セラーID・ブランド名等）の既存データは上書きされます。続けますか？")) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        resultEl.textContent = "インポート中…";
+        resultEl.style.color = "#666";
+        importBtn.disabled = true;
+
+        fetch("/amazon/import_data", { method: "POST", body: formData })
+            .then(res => res.json())
+            .then(data => {
+                importBtn.disabled = false;
+
+                if (data.status !== "success") {
+                    resultEl.textContent = data.message || "インポートに失敗しました。";
+                    resultEl.style.color = "#c0392b";
+                    return;
+                }
+
+                const r = data.result || {};
+                const parts = [];
+                if ("seller_list" in r) parts.push(`セラー一覧 ${r.seller_list}件`);
+                if ("brand_master" in r) parts.push(`ブランドマスタ ${r.brand_master}件`);
+                if ("category_master" in r) parts.push(`カテゴリーマスタ ${r.category_master}件`);
+                if ("genre_master" in r) parts.push(`ジャンル分析（大分類）${r.genre_master}件`);
+                if ("genre_history" in r) parts.push(`ジャンル分析（履歴・新規分のみ）${r.genre_history}件`);
+
+                resultEl.textContent = `インポート完了: ${parts.join(" / ")}　※画面を更新します…`;
+                resultEl.style.color = "#2e7d32";
+
+                // ✅ セラー一覧・各種プルダウン・履歴パネルなどを確実に最新化するため、
+                //    結果表示を一瞬見せてからページを再読み込みする
+                setTimeout(() => window.location.reload(), 1200);
+            })
+            .catch(err => {
+                importBtn.disabled = false;
+                resultEl.textContent = "インポートに失敗しました。";
+                resultEl.style.color = "#c0392b";
+                console.error("❌ import_data error:", err);
+            });
+    });
+});
+

@@ -45,6 +45,9 @@
             <button class="tab active" data-mode="simple">リサーチ</button>
             {% endif %}
 
+            <!-- ✅ データのエクスポート/インポート（バックアップ・他PCへの移行用）起動ボタン -->
+            <button id="dataIOOpenBtn" type="button" style="margin-left:auto; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.45); color:#fff; padding:0 14px; height:36px; border-radius:6px; cursor:pointer; font-weight:600;">データのエクスポート/インポート</button>
+
         </div>
     </div>
 
@@ -255,7 +258,67 @@
         </div><!-- /.card（サブタブここまで） -->
     </div><!-- /#research -->
     </div> <!-- ✅ tool-layout 閉じタグ -->
- 
+
+    <!-- ✅ データのエクスポート/インポート（バックアップ・他PCへの移行用） -->
+    <div id="dataIOModal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <h2 style="margin-top:0;">データのエクスポート / インポート</h2>
+            <p style="font-size:12px; color:#777;">バックアップや他のPCへのデータ移行に使います。</p>
+
+            <div class="row">
+                <span class="label">対象マーケットプレイス</span>
+                <div>
+                    <label><input type="checkbox" class="dataio-region" value="AU" checked> AU</label>
+                    <label style="margin-left:14px;"><input type="checkbox" class="dataio-region" value="US" checked> US</label>
+                    <label style="margin-left:14px;"><input type="checkbox" class="dataio-region" value="CA" checked> CA</label>
+                </div>
+            </div>
+
+            <div class="row">
+                <span class="label">対象データ</span>
+                <div id="dataio-dataset-list">
+                    <label style="display:block; margin-bottom:4px;">
+                        <input type="checkbox" class="dataio-dataset" value="seller_list" checked>
+                        セラー一覧 <span class="dataio-count" data-key="seller_list"></span>
+                    </label>
+                    <label style="display:block; margin-bottom:4px;">
+                        <input type="checkbox" class="dataio-dataset" value="brand_master" checked>
+                        ブランドマスタ <span class="dataio-count" data-key="brand_master"></span>
+                    </label>
+                    {% if advanced_mode %}
+                    <label class="advanced-only" style="display:block; margin-bottom:4px;">
+                        <input type="checkbox" class="dataio-dataset" value="category_master" checked>
+                        カテゴリーマスタ（手動登録分） <span class="dataio-count" data-key="category_master"></span>
+                    </label>
+                    <label class="advanced-only" style="display:block; margin-bottom:4px;">
+                        <input type="checkbox" class="dataio-dataset" value="genre_master" checked>
+                        ジャンル分析データ（大分類・履歴） <span class="dataio-count" data-key="genre_master"></span>
+                    </label>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button id="dataIOExportBtn" class="btn-blue">選択したデータをエクスポート</button>
+            </div>
+
+            <hr style="margin:16px 0;">
+
+            <h3 style="margin-bottom:6px;">インポート</h3>
+            <p style="font-size:12px; color:#777;">エクスポートしたファイルを読み込みます。既存データと同じキー（セラーID・ブランド名等）は上書き更新されます。</p>
+            <div class="row">
+                <input type="file" id="dataIOImportFile" accept="application/json" class="input">
+            </div>
+            <div class="btn-row">
+                <button id="dataIOImportBtn" class="btn-blue">選択したファイルをインポート</button>
+            </div>
+            <div id="dataIOResult" style="margin-top:10px; font-size:13px;"></div>
+
+            <div class="btn-row" style="margin-top:16px;">
+                <button id="dataIOCloseBtn" class="btn-blue" style="background:#888;">閉じる</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ✅ JavaScriptの読み込み -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
