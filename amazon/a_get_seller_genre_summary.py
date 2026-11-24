@@ -51,6 +51,13 @@ seller_id = args[0].strip()
 country_code = args[1].strip().lower()
 amazon_domain = AMAZON_DOMAIN[country_code]
 
+# ✅ 第3引数（parent_node_id）が指定された場合は「深掘りモード」。
+#    通常モード（大分類の一覧を取得）とは違い、指定されたnode_idの中に
+#    さらに絞り込み欄（サブカテゴリー）が無いかを1段階だけ掘って調べる。
+#    例：「Clothing, Shoes & Accessories」の中の「Watches」「Shoes」等。
+parent_node_id = args[2].strip() if len(args) > 2 and args[2].strip() else ""
+is_drilldown = bool(parent_node_id)
+
 raw_data_dir = config.get("data_dir", "data")
 output_folder = os.path.abspath(os.path.join(BASE_DIR, raw_data_dir, country_code))
 os.makedirs(output_folder, exist_ok=True)
@@ -63,7 +70,11 @@ profile_path = os.path.join(
     config.get(f"chrome_profile_{country_code}", f"Chrome_Profile/{country_code}")
 )
 
-status_path = os.path.join(log_dir, f"genre_status_{country_code}.json")
+# ✅ 深掘りモードは「今クリックして見ている一時的な結果」なので、通常モードの
+#    状態ファイル（genre_status_*.json＝履歴パネルや実行結果に使う）とは
+#    別ファイルに書き、お互いの表示を上書きしないようにする
+status_filename = f"genre_drilldown_status_{country_code}.json" if is_drilldown else f"genre_status_{country_code}.json"
+status_path = os.path.join(log_dir, status_filename)
 
 
 def write_status(running, genres=None, total_count=None, saved_path=None, error=None):
@@ -74,6 +85,7 @@ def write_status(running, genres=None, total_count=None, saved_path=None, error=
                 "seller_id": seller_id,
                 "region": country_code,
                 "running": running,
+                "parent_node_id": parent_node_id,
                 "updated_at": now_jst.strftime("%Y-%m-%d %H:%M:%S"),
                 "genres": genres or [],
                 "total_count": total_count,
@@ -220,7 +232,10 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    base_url = f"https://{amazon_domain}/s?me={seller_id}"
+    if is_drilldown:
+        base_url = f"https://{amazon_domain}/s?me={seller_id}&rh=n:{parent_node_id}"
+    else:
+        base_url = f"https://{amazon_domain}/s?me={seller_id}"
     driver.get(base_url)
     time.sleep(2)
 
@@ -233,14 +248,23 @@ try:
     total_count = parse_result_count(driver)
     departments = collect_departments(driver)
 
+    # ✅ Amazon側の絞り込み欄に、今まさに絞り込んでいる自分自身（parent_node_id）が
+    #    候補として含まれてくることがあるため除外する
+    if is_drilldown:
+        departments = [d for d in departments if d["node_id"] != parent_node_id]
+
     if not departments:
-        _save_debug_screenshot(driver, "no_departments")
-        write_status(
-            running=False,
-            genres=[],
-            total_count=total_count,
-            error="ジャンル（Department）の絞り込み欄が見つかりませんでした。Amazon側の表示が変わっている可能性があります。"
-        )
+        if is_drilldown:
+            # ✅ サブカテゴリーが無いのはエラーではなく「これが最下層」という正常な結果
+            write_status(running=False, genres=[], total_count=total_count)
+        else:
+            _save_debug_screenshot(driver, "no_departments")
+            write_status(
+                running=False,
+                genres=[],
+                total_count=total_count,
+                error="ジャンル（Department）の絞り込み欄が見つかりませんでした。Amazon側の表示が変わっている可能性があります。"
+            )
         driver.quit()
         sys.exit(0)
 
@@ -256,42 +280,47 @@ try:
             "count": count if count is not None else 0,
         })
 
-        # ✅ genre_master.db（category_masterとは別DB）に保存しておく。
-        #    「詳細設定」タブの「カテゴリー（大分類）」欄が、ライブ探索なしでこのnode_idを再利用できるようになる。
-        try:
-            save_genre(country_code, dept["name"], dept["node_id"], count)
-        except Exception as e:
-            if get_debug_mode():
-                print(f"▶ [genre] genre_master保存失敗: {dept['name']!r} ({e})")
+        # ✅ genre_master.db（category_masterとは別DB）への保存は、大分類の一覧を
+        #    取る通常モードの時だけ行う。深掘りモードは「今見るための一時的な結果」
+        #    なので保存しない（サブカテゴリー名が大分類の選択肢に混ざるのを防ぐ）
+        if not is_drilldown:
+            try:
+                save_genre(country_code, dept["name"], dept["node_id"], count)
+            except Exception as e:
+                if get_debug_mode():
+                    print(f"▶ [genre] genre_master保存失敗: {dept['name']!r} ({e})")
 
         # ✅ 途中経過を画面に反映できるよう、1件集計するごとに状態ファイルを更新
         write_status(running=True, genres=sorted(genres, key=lambda g: g["count"], reverse=True), total_count=total_count)
 
     genres.sort(key=lambda g: g["count"], reverse=True)
 
-    now_jst = datetime.utcnow() + timedelta(hours=9)
-    timestamp = now_jst.strftime("%Y%m%d_%H%M%S")
-    run_at = now_jst.strftime("%Y-%m-%d %H:%M:%S")
+    saved_path = None
 
-    # ✅ セラー単位の実行履歴として全件残す（再リサーチ時に「このセラーは過去何を
-    #    多く扱ってたか」を振り返れるようにするため）
-    for g in genres:
-        try:
-            save_genre_history(country_code, seller_id, g["name"], g["node_id"], g["count"], run_at)
-        except Exception as e:
-            if get_debug_mode():
-                print(f"▶ [genre] genre_history保存失敗: {g['name']!r} ({e})")
+    if not is_drilldown:
+        now_jst = datetime.utcnow() + timedelta(hours=9)
+        timestamp = now_jst.strftime("%Y%m%d_%H%M%S")
+        run_at = now_jst.strftime("%Y-%m-%d %H:%M:%S")
 
-    filename = f"{country_code.upper()}_{timestamp}_{seller_id}_GENRE_SUMMARY.csv"
-    csv_path = os.path.join(output_folder, filename)
-
-    with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Department", "NodeID", "件数"])
+        # ✅ セラー単位の実行履歴として全件残す（再リサーチ時に「このセラーは過去何を
+        #    多く扱ってたか」を振り返れるようにするため）。深掘りモードは対象外
         for g in genres:
-            writer.writerow([g["name"], g["node_id"], g["count"]])
+            try:
+                save_genre_history(country_code, seller_id, g["name"], g["node_id"], g["count"], run_at)
+            except Exception as e:
+                if get_debug_mode():
+                    print(f"▶ [genre] genre_history保存失敗: {g['name']!r} ({e})")
 
-    write_status(running=False, genres=genres, total_count=total_count, saved_path=csv_path)
+        filename = f"{country_code.upper()}_{timestamp}_{seller_id}_GENRE_SUMMARY.csv"
+        saved_path = os.path.join(output_folder, filename)
+
+        with open(saved_path, "w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Department", "NodeID", "件数"])
+            for g in genres:
+                writer.writerow([g["name"], g["node_id"], g["count"]])
+
+    write_status(running=False, genres=genres, total_count=total_count, saved_path=saved_path)
 
 except Exception as e:
     _save_debug_screenshot(driver, "error")

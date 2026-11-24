@@ -1392,6 +1392,28 @@ function runGenreSummary() {
     });
 }
 
+// ✅ 気になった部門だけクリックで1段階深掘りできるよう、行ごとに「掘り下げる」ボタンと
+//    その結果を展開するための空行を仕込んだテーブルを作る（深掘り結果にも同じ関数を
+//    再利用することで、何段階でも際限なく掘り下げられるようにしている）
+function buildGenreTableHtml(genres) {
+    let html = `<table style="border-collapse:collapse; width:100%;">`;
+    html += `<tr><th style="text-align:left; border-bottom:1px solid #ccc; padding:2px 10px 2px 0;">ジャンル</th><th style="text-align:right; border-bottom:1px solid #ccc; padding:2px 10px;">件数</th><th style="border-bottom:1px solid #ccc;"></th></tr>`;
+    genres.forEach(g => {
+        const rowId = `genre-drill-${g.node_id}`;
+        const safeName = String(g.name).replace(/"/g, "&quot;");
+        html += `<tr>
+            <td style="padding:2px 10px 2px 0;">${g.name}</td>
+            <td style="text-align:right; padding:2px 10px;">${g.count}</td>
+            <td style="padding:2px 0;"><button type="button" class="genre-drilldown-btn" data-node-id="${g.node_id}" data-name="${safeName}" style="font-size:11px; padding:2px 8px;">掘り下げる</button></td>
+        </tr>
+        <tr id="${rowId}"><td colspan="3" style="padding:0 0 4px 16px;"></td></tr>`;
+    });
+    html += `</table>`;
+    return html;
+}
+
+let lastGenreSummaryKey = null;
+
 function renderGenreSummary(data) {
     const el = document.getElementById("genre-summary-result");
     const runBtn = document.getElementById("genreSummaryRunBtn");
@@ -1399,6 +1421,12 @@ function renderGenreSummary(data) {
     if (runBtn) runBtn.disabled = !!data.running;
     if (stopBtn) stopBtn.disabled = !data.running;
     if (!el) return;
+
+    // ✅ 5秒おきのポーリングのたびに内容を丸ごと描き直すと、クリックして展開した
+    //    深掘り結果が消えてしまうので、前回描画時と内容が変わっていなければ何もしない
+    const key = JSON.stringify({ running: data.running, genres: data.genres, total_count: data.total_count, error: data.error, stopped_by_user: data.stopped_by_user });
+    if (key === lastGenreSummaryKey) return;
+    lastGenreSummaryKey = key;
 
     if (data.error) {
         el.innerHTML = `<div style="color:#c0392b;">❌ ${data.error}</div>`;
@@ -1415,12 +1443,7 @@ function renderGenreSummary(data) {
     if (typeof data.total_count === "number") {
         html += `<div style="margin-bottom:6px;">全体件数（目安）: ${data.total_count.toLocaleString()}件</div>`;
     }
-    html += `<table style="border-collapse:collapse;">`;
-    html += `<tr><th style="text-align:left; border-bottom:1px solid #ccc; padding:2px 10px 2px 0;">ジャンル</th><th style="text-align:right; border-bottom:1px solid #ccc; padding:2px 0;">件数</th></tr>`;
-    genres.forEach(g => {
-        html += `<tr><td style="padding:2px 10px 2px 0;">${g.name}</td><td style="text-align:right; padding:2px 0;">${g.count}</td></tr>`;
-    });
-    html += `</table>`;
+    html += buildGenreTableHtml(genres);
 
     if (data.running) {
         html += `<div style="margin-top:6px; color:#888;">実行中…</div>`;
@@ -1437,6 +1460,99 @@ function renderGenreSummary(data) {
         refreshGenreHistory();
     }
 }
+
+// ✅ 深掘り（同じChromeプロファイルを使うため通常モードの分析とも排他）
+let genreDrilldownBusy = false;
+
+function pollGenreDrilldownStatus(region, targetCell, btn) {
+    fetch(`/amazon/genre_drilldown_status?region=${region}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status !== "success") {
+                setTimeout(() => pollGenreDrilldownStatus(region, targetCell, btn), 1500);
+                return;
+            }
+            if (data.running) {
+                setTimeout(() => pollGenreDrilldownStatus(region, targetCell, btn), 1500);
+                return;
+            }
+
+            genreDrilldownBusy = false;
+            btn.disabled = false;
+            btn.textContent = "再取得";
+
+            if (data.error) {
+                targetCell.innerHTML = `<span style="color:#c0392b;">❌ ${data.error}</span>`;
+                return;
+            }
+
+            const genres = data.genres || [];
+            if (genres.length === 0) {
+                targetCell.innerHTML = `<span style="color:#888;">これ以上のサブカテゴリーはありませんでした（最下層です）。</span>`;
+                return;
+            }
+
+            targetCell.innerHTML = buildGenreTableHtml(genres);
+        })
+        .catch(() => {
+            setTimeout(() => pollGenreDrilldownStatus(region, targetCell, btn), 1500);
+        });
+}
+
+function handleGenreDrilldownClick(btn) {
+    if (genreDrilldownBusy) {
+        alert("他の深掘りが進行中です。完了してからもう一度お試しください。");
+        return;
+    }
+
+    const nodeId = btn.dataset.nodeId;
+    const name = btn.dataset.name;
+    const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase();
+    const sellerId = getCurrentSellerId();
+    const rowId = `genre-drill-${nodeId}`;
+    const targetCell = document.querySelector(`#${CSS.escape(rowId)} td`);
+    if (!targetCell) return;
+
+    if (!sellerId) {
+        alert("セラーIDが選択されていません。");
+        return;
+    }
+
+    genreDrilldownBusy = true;
+    btn.disabled = true;
+    btn.textContent = "実行中…";
+    targetCell.innerHTML = `<span style="color:#888;">「${name}」を調べています…（Chromeが開いたらDeliver toを確認してください）</span>`;
+
+    fetch("/amazon/run_genre_drilldown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ region, seller_id: sellerId, parent_node_id: nodeId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status !== "success") {
+            genreDrilldownBusy = false;
+            btn.disabled = false;
+            btn.textContent = "掘り下げる";
+            targetCell.innerHTML = `<span style="color:#c0392b;">${data.message || "開始に失敗しました。"}</span>`;
+            return;
+        }
+        pollGenreDrilldownStatus(region, targetCell, btn);
+    })
+    .catch(() => {
+        genreDrilldownBusy = false;
+        btn.disabled = false;
+        btn.textContent = "掘り下げる";
+        targetCell.innerHTML = `<span style="color:#c0392b;">開始に失敗しました。</span>`;
+    });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("genre-summary-result")?.addEventListener("click", (e) => {
+        const btn = e.target.closest(".genre-drilldown-btn");
+        if (btn) handleGenreDrilldownClick(btn);
+    });
+});
 
 // ✅ 自分用：選択中のセラーに対する「ジャンル分析」実行履歴（セラー情報ブロック右側に表示）
 function getCurrentSellerId() {

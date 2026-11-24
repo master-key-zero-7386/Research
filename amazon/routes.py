@@ -753,21 +753,84 @@ def stop_genre_summary():
 
     running_genre_processes.pop(region, None)
 
-    try:
-        config = load_config_from_file()
-        log_dir = os.path.join(BASE_DIR, config.get("log_dir", "log"))
-        status_path = os.path.join(log_dir, f"genre_status_{region}.json")
-        if os.path.exists(status_path):
-            with open(status_path, "r", encoding="utf-8") as f:
-                status_data = json.load(f)
-            status_data["running"] = False
-            status_data["stopped_by_user"] = True
-            with open(status_path, "w", encoding="utf-8") as f:
-                json.dump(status_data, f, ensure_ascii=False)
-    except Exception:
-        pass
+    # ✅ 通常モード・深掘りモードのどちらの状態ファイルを使っていたか分からないので、
+    #    存在する方（実行中だった方）を更新する
+    for fname in (f"genre_status_{region}.json", f"genre_drilldown_status_{region}.json"):
+        try:
+            config = load_config_from_file()
+            log_dir = os.path.join(BASE_DIR, config.get("log_dir", "log"))
+            status_path = os.path.join(log_dir, fname)
+            if os.path.exists(status_path):
+                with open(status_path, "r", encoding="utf-8") as f:
+                    status_data = json.load(f)
+                status_data["running"] = False
+                status_data["stopped_by_user"] = True
+                with open(status_path, "w", encoding="utf-8") as f:
+                    json.dump(status_data, f, ensure_ascii=False)
+        except Exception:
+            pass
 
     return jsonify({"status": "success", "message": "停止しました。"})
+
+
+# ✅ 自分用：ジャンル分析の結果一覧から、気になった部門だけさらに1段階深掘りする
+#    （例：「Clothing, Shoes & Accessories」の中の「Watches」「Shoes」等）
+@amazon_bp.route("/run_genre_drilldown", methods=["POST"])
+def run_genre_drilldown():
+    data = request.get_json(force=True, silent=True) or {}
+    region = (data.get("region") or "").lower()
+    seller_id = (data.get("seller_id") or "").strip()
+    parent_node_id = (data.get("parent_node_id") or "").strip()
+
+    if not region:
+        return jsonify({"status": "error", "message": "regionが指定されていません。"}), 400
+    if not seller_id:
+        return jsonify({"status": "error", "message": "セラーIDが指定されていません。"}), 400
+    if not parent_node_id:
+        return jsonify({"status": "error", "message": "深掘り対象のノードIDが指定されていません。"}), 400
+
+    # ✅ 同じChromeプロファイルを同時に使えないので、通常モードの分析とも排他にする
+    existing = running_genre_processes.get(region)
+    if existing and existing.poll() is None:
+        return jsonify({"status": "error", "message": "ジャンル分析は既に実行中です。"}), 409
+
+    script_path = os.path.join(os.getcwd(), "amazon", "a_get_seller_genre_summary.py")
+    proc = subprocess.Popen([sys.executable, script_path, seller_id, region, parent_node_id])
+    running_genre_processes[region] = proc
+
+    return jsonify({"status": "success", "message": "深掘りを開始しました。"})
+
+
+@amazon_bp.route("/genre_drilldown_status")
+def genre_drilldown_status():
+    region = request.args.get("region", "").lower()
+    if not region:
+        return jsonify({"status": "error", "message": "regionが指定されていません"}), 400
+
+    config = load_config_from_file()
+    log_dir = os.path.join(BASE_DIR, config.get("log_dir", "log"))
+    status_path = os.path.join(log_dir, f"genre_drilldown_status_{region}.json")
+
+    if not os.path.exists(status_path):
+        return jsonify({"status": "success", "running": False, "genres": []})
+
+    try:
+        with open(status_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return jsonify({"status": "success", "running": False, "genres": []})
+
+    return jsonify({
+        "status": "success",
+        "running": data.get("running", False),
+        "stopped_by_user": data.get("stopped_by_user", False),
+        "seller_id": data.get("seller_id", ""),
+        "parent_node_id": data.get("parent_node_id", ""),
+        "updated_at": data.get("updated_at", ""),
+        "genres": data.get("genres", []),
+        "total_count": data.get("total_count"),
+        "error": data.get("error"),
+    })
 
 
 @amazon_bp.route("/genre_summary_status")
