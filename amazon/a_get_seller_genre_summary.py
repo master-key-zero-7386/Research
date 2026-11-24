@@ -256,6 +256,10 @@ try:
     if not departments:
         if is_drilldown:
             # ✅ サブカテゴリーが無いのはエラーではなく「これが最下層」という正常な結果
+            #    …として扱っているが、本当に最下層なのかスクレイピング側の問題なのか
+            #    区別がつかないとの指摘があったため、次回以降の調査用にスクリーンショットと
+            #    HTMLを残しておく（表示上の挙動は変えない）
+            _save_debug_screenshot(driver, f"drilldown_leaf_{parent_node_id}")
             write_status(running=False, genres=[], total_count=total_count)
         else:
             _save_debug_screenshot(driver, "no_departments")

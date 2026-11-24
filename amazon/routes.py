@@ -794,6 +794,30 @@ def run_genre_drilldown():
     if existing and existing.poll() is None:
         return jsonify({"status": "error", "message": "ジャンル分析は既に実行中です。"}), 409
 
+    # ✅ 状態ファイルは前回の深掘り結果が残ったままになっているため、新しいプロセスが
+    #    起動しPythonのimport等を終えてwrite_status(running=True)を書き込むまでの間に
+    #    フロント側が先に状態確認してしまうと、前回の（既に完了済みの）結果を
+    #    「今回の結果」として誤表示してしまう。これを防ぐため、プロセス起動前に
+    #    ここで先に running=True へ初期化しておく
+    try:
+        config = load_config_from_file()
+        log_dir = os.path.join(BASE_DIR, config.get("log_dir", "log"))
+        os.makedirs(log_dir, exist_ok=True)
+        status_path = os.path.join(log_dir, f"genre_drilldown_status_{region}.json")
+        with open(status_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "seller_id": seller_id,
+                "region": region,
+                "running": True,
+                "parent_node_id": parent_node_id,
+                "genres": [],
+                "total_count": None,
+                "saved_path": None,
+                "error": None,
+            }, f, ensure_ascii=False)
+    except Exception:
+        pass
+
     script_path = os.path.join(os.getcwd(), "amazon", "a_get_seller_genre_summary.py")
     proc = subprocess.Popen([sys.executable, script_path, seller_id, region, parent_node_id])
     running_genre_processes[region] = proc
