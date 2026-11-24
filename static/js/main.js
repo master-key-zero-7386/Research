@@ -1392,6 +1392,18 @@ function runGenreSummary() {
     });
 }
 
+// ✅ 実行直後の結果はどのみち完了後に右側の履歴パネルへそのまま反映されるため、
+//    ボタンなしの単純な一覧表示にとどめる（深掘りボタンは履歴パネル側にのみ置く）
+function buildPlainGenreTableHtml(genres) {
+    let html = `<table style="border-collapse:collapse; width:100%;">`;
+    html += `<tr><th style="text-align:left; border-bottom:1px solid #ccc; padding:2px 10px 2px 0;">ジャンル</th><th style="text-align:right; border-bottom:1px solid #ccc; padding:2px 10px;">件数</th></tr>`;
+    genres.forEach(g => {
+        html += `<tr><td style="padding:2px 10px 2px 0;">${g.name}</td><td style="text-align:right; padding:2px 10px;">${g.count}</td></tr>`;
+    });
+    html += `</table>`;
+    return html;
+}
+
 // ✅ 気になった部門だけクリックで1段階深掘りできるよう、行ごとに「掘り下げる」ボタンと
 //    その結果を展開するための空行を仕込んだテーブルを作る（深掘り結果にも同じ関数を
 //    再利用することで、何段階でも際限なく掘り下げられるようにしている）
@@ -1399,14 +1411,13 @@ function buildGenreTableHtml(genres) {
     let html = `<table style="border-collapse:collapse; width:100%;">`;
     html += `<tr><th style="text-align:left; border-bottom:1px solid #ccc; padding:2px 10px 2px 0;">ジャンル</th><th style="text-align:right; border-bottom:1px solid #ccc; padding:2px 10px;">件数</th><th style="border-bottom:1px solid #ccc;"></th></tr>`;
     genres.forEach(g => {
-        const rowId = `genre-drill-${g.node_id}`;
         const safeName = String(g.name).replace(/"/g, "&quot;");
         html += `<tr>
             <td style="padding:2px 10px 2px 0;">${g.name}</td>
             <td style="text-align:right; padding:2px 10px;">${g.count}</td>
             <td style="padding:2px 0;"><button type="button" class="genre-drilldown-btn" data-node-id="${g.node_id}" data-name="${safeName}" style="font-size:11px; padding:2px 8px;">掘り下げる</button></td>
         </tr>
-        <tr id="${rowId}"><td colspan="3" style="padding:0 0 4px 16px;"></td></tr>`;
+        <tr><td colspan="3" style="padding:0 0 4px 16px;"></td></tr>`;
     });
     html += `</table>`;
     return html;
@@ -1422,8 +1433,8 @@ function renderGenreSummary(data) {
     if (stopBtn) stopBtn.disabled = !data.running;
     if (!el) return;
 
-    // ✅ 5秒おきのポーリングのたびに内容を丸ごと描き直すと、クリックして展開した
-    //    深掘り結果が消えてしまうので、前回描画時と内容が変わっていなければ何もしない
+    // ✅ 5秒おきのポーリングのたびに内容を丸ごと描き直すと表示がちらつくので、
+    //    前回描画時と内容が変わっていなければ何もしない
     const key = JSON.stringify({ running: data.running, genres: data.genres, total_count: data.total_count, error: data.error, stopped_by_user: data.stopped_by_user });
     if (key === lastGenreSummaryKey) return;
     lastGenreSummaryKey = key;
@@ -1443,7 +1454,7 @@ function renderGenreSummary(data) {
     if (typeof data.total_count === "number") {
         html += `<div style="margin-bottom:6px;">全体件数（目安）: ${data.total_count.toLocaleString()}件</div>`;
     }
-    html += buildGenreTableHtml(genres);
+    html += buildPlainGenreTableHtml(genres);
 
     if (data.running) {
         html += `<div style="margin-top:6px; color:#888;">実行中…</div>`;
@@ -1509,8 +1520,11 @@ function handleGenreDrilldownClick(btn) {
     const name = btn.dataset.name;
     const region = (document.getElementById("globalRegion")?.value || "US").toLowerCase();
     const sellerId = getCurrentSellerId();
-    const rowId = `genre-drill-${nodeId}`;
-    const targetCell = document.querySelector(`#${CSS.escape(rowId)} td`);
+    // ✅ idで探すと、履歴パネルのように同じnode_idの部門が複数回（実行日ごとに）
+    //    登場する場合に別の行を誤って書き換えてしまうため、ボタンの行から見た
+    //    「次の行」をDOM上の位置関係で辿って対象セルを特定する
+    const targetRow = btn.closest("tr")?.nextElementSibling;
+    const targetCell = targetRow ? targetRow.querySelector("td") : null;
     if (!targetCell) return;
 
     if (!sellerId) {
@@ -1548,7 +1562,7 @@ function handleGenreDrilldownClick(btn) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("genre-summary-result")?.addEventListener("click", (e) => {
+    document.getElementById("genre-history-panel")?.addEventListener("click", (e) => {
         const btn = e.target.closest(".genre-drilldown-btn");
         if (btn) handleGenreDrilldownClick(btn);
     });
@@ -1574,11 +1588,8 @@ function renderGenreHistory(history) {
     history.forEach(run => {
         html += `<div style="margin-bottom:12px;">`;
         html += `<div style="font-weight:600; color:#555; margin-bottom:2px;">${run.run_at}</div>`;
-        html += `<table style="border-collapse:collapse; width:100%;">`;
-        run.genres.forEach(g => {
-            html += `<tr><td style="padding:1px 8px 1px 0;">${g.name}</td><td style="text-align:right; padding:1px 0;">${g.count}</td></tr>`;
-        });
-        html += `</table></div>`;
+        html += buildGenreTableHtml(run.genres);
+        html += `</div>`;
     });
 
     el.innerHTML = html;
