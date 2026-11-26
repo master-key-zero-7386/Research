@@ -1406,21 +1406,59 @@ function buildPlainGenreTableHtml(genres) {
 
 // ✅ 気になった部門だけクリックで1段階深掘りできるよう、行ごとに「掘り下げる」ボタンと
 //    その結果を展開するための空行を仕込んだテーブルを作る（深掘り結果にも同じ関数を
-//    再利用することで、何段階でも際限なく掘り下げられるようにしている）
+//    再利用することで、何段階でも際限なく掘り下げられるようにしている）。
+//    名前の左には開閉トグル、右には「リサーチに使う」ボタンも付ける。
 function buildGenreTableHtml(genres) {
     let html = `<table style="border-collapse:collapse; width:100%;">`;
-    html += `<tr><th style="text-align:left; border-bottom:1px solid #ccc; padding:2px 10px 2px 0;">ジャンル</th><th style="text-align:right; border-bottom:1px solid #ccc; padding:2px 10px;">件数</th><th style="border-bottom:1px solid #ccc;"></th></tr>`;
+    html += `<tr>
+        <th style="width:18px; border-bottom:1px solid #ccc;"></th>
+        <th style="text-align:left; border-bottom:1px solid #ccc; padding:2px 10px 2px 0;">ジャンル</th>
+        <th style="text-align:right; border-bottom:1px solid #ccc; padding:2px 10px;">件数</th>
+        <th style="border-bottom:1px solid #ccc;"></th>
+        <th style="border-bottom:1px solid #ccc;"></th>
+    </tr>`;
     genres.forEach(g => {
         const safeName = String(g.name).replace(/"/g, "&quot;");
         html += `<tr>
-            <td style="padding:2px 10px 2px 0;">${g.name}</td>
+            <td style="padding:2px 4px 2px 0;"><button type="button" class="genre-toggle-btn" title="展開結果の表示/非表示" style="font-size:11px; width:20px; padding:0 2px;">▸</button></td>
+            <td style="padding:2px 10px 2px 0;">${g.name} <span class="genre-nodeid-copy" data-node-id="${g.node_id}" title="クリックでノードIDをコピー" style="cursor:pointer; color:#1565c0; text-decoration:underline;">(${g.node_id})</span></td>
             <td style="text-align:right; padding:2px 10px;">${g.count}</td>
+            <td style="padding:2px 0;"><button type="button" class="genre-use-btn" data-node-id="${g.node_id}" data-name="${safeName}" style="font-size:11px; padding:2px 8px;">リサーチに使う</button></td>
             <td style="padding:2px 0;"><button type="button" class="genre-drilldown-btn" data-node-id="${g.node_id}" data-name="${safeName}" style="font-size:11px; padding:2px 8px;">掘り下げる</button></td>
         </tr>
-        <tr><td colspan="3" style="padding:0 0 4px 16px;"></td></tr>`;
+        <tr style="display:none;"><td></td><td colspan="4" style="padding:0 0 4px 16px;"></td></tr>`;
     });
     html += `</table>`;
     return html;
+}
+
+// ✅ 名前の左の「▸/▾」ボタン：既に取得済みの展開結果を再取得なしで畳む/開くだけ
+function handleGenreToggleClick(btn) {
+    const targetRow = btn.closest("tr")?.nextElementSibling;
+    if (!targetRow) return;
+    const isHidden = targetRow.style.display === "none";
+    targetRow.style.display = isHidden ? "" : "none";
+    btn.textContent = isHidden ? "▾" : "▸";
+}
+
+// ✅ 「リサーチに使う」：この部門のノードIDを左側の詳細設定にそのまま反映する
+function handleGenreUseClick(btn) {
+    const nodeId = btn.dataset.nodeId;
+    const name = btn.dataset.name;
+
+    const categoryInput = document.getElementById("category");
+    const nodeIdInput = document.getElementById("category_node_id_manual");
+    if (categoryInput) categoryInput.value = name;
+    if (nodeIdInput) nodeIdInput.value = nodeId;
+
+    // ✅ 反映されたことが画面で分かるよう、「詳細設定」サブタブに切り替える
+    document.querySelector('.subtab[data-subtab="detail-settings"]')?.click();
+
+    const resultEl = document.getElementById("category_node_id_verify_result");
+    if (resultEl) {
+        resultEl.textContent = `「${name}」を反映しました`;
+        resultEl.style.color = "#2e7d32";
+    }
 }
 
 let lastGenreSummaryKey = null;
@@ -1523,8 +1561,9 @@ function handleGenreDrilldownClick(btn) {
     // ✅ idで探すと、履歴パネルのように同じnode_idの部門が複数回（実行日ごとに）
     //    登場する場合に別の行を誤って書き換えてしまうため、ボタンの行から見た
     //    「次の行」をDOM上の位置関係で辿って対象セルを特定する
-    const targetRow = btn.closest("tr")?.nextElementSibling;
-    const targetCell = targetRow ? targetRow.querySelector("td") : null;
+    const row = btn.closest("tr");
+    const targetRow = row?.nextElementSibling;
+    const targetCell = targetRow ? targetRow.querySelector("td:last-child") : null;
     if (!targetCell) return;
 
     if (!sellerId) {
@@ -1535,6 +1574,10 @@ function handleGenreDrilldownClick(btn) {
     genreDrilldownBusy = true;
     btn.disabled = true;
     btn.textContent = "実行中…";
+    // ✅ 結果が入る行は普段畳まれているので、取得開始と同時に開いた状態にする
+    targetRow.style.display = "";
+    const toggleBtn = row.querySelector(".genre-toggle-btn");
+    if (toggleBtn) toggleBtn.textContent = "▾";
     targetCell.innerHTML = `<span style="color:#888;">「${name}」を調べています…（Chromeが開いたらDeliver toを確認してください）</span>`;
 
     fetch("/amazon/run_genre_drilldown", {
@@ -1561,10 +1604,32 @@ function handleGenreDrilldownClick(btn) {
     });
 }
 
+// ✅ 名前の横の「(ノードID)」をクリックしたらクリップボードにコピーする
+function handleGenreNodeIdCopyClick(span) {
+    const nodeId = span.dataset.nodeId;
+    const original = span.textContent;
+    navigator.clipboard.writeText(nodeId).then(() => {
+        span.textContent = "コピーしました";
+        setTimeout(() => { span.textContent = original; }, 1200);
+    }).catch(() => {
+        span.textContent = "コピー失敗";
+        setTimeout(() => { span.textContent = original; }, 1200);
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("genre-history-panel")?.addEventListener("click", (e) => {
-        const btn = e.target.closest(".genre-drilldown-btn");
-        if (btn) handleGenreDrilldownClick(btn);
+        const drillBtn = e.target.closest(".genre-drilldown-btn");
+        if (drillBtn) { handleGenreDrilldownClick(drillBtn); return; }
+
+        const toggleBtn = e.target.closest(".genre-toggle-btn");
+        if (toggleBtn) { handleGenreToggleClick(toggleBtn); return; }
+
+        const useBtn = e.target.closest(".genre-use-btn");
+        if (useBtn) { handleGenreUseClick(useBtn); return; }
+
+        const copySpan = e.target.closest(".genre-nodeid-copy");
+        if (copySpan) handleGenreNodeIdCopyClick(copySpan);
     });
 });
 
